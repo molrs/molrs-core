@@ -7,7 +7,6 @@ description = "A cheminformatics toolkit written in Rust."
 readme = "README.md"
 homepage = "https://github.com/TheRealSalmon/molrs"
 license = "MIT"
-license-file = "LICENSE"
 keywords = ["chem", "chemistry", "cheminformatics", "RDKit"]
 
 [dependencies]
