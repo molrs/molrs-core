@@ -10,3 +10,6 @@ license = "MIT"
 keywords = ["chem", "chemistry", "cheminformatics", "RDKit"]
 
 [dependencies]
+
+[dev-dependencies]
+tester = "0.9.0"
