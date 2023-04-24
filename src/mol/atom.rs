@@ -1,6 +1,5 @@
 /// TODO:
 /// hybridization?
-/// partial eq and eq?
 
 use crate::periodic_table::AtomicSymbol;
 use super::Mol;
@@ -8,8 +7,9 @@ use super::Bond;
 use super::bond::BondType;
 
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Chirality {
+    #[default]
     Undefined,
     Clockwise,
     CounterClockwise,
@@ -24,34 +24,32 @@ impl Chirality {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Atom {
     pub atomic_symbol: AtomicSymbol,
-    pub isotope: usize,
-    pub charge: isize,
+    pub isotope: u16,
+    pub charge: i8,
     pub aromatic: bool,
-    pub num_imp_h: usize,
+    pub num_imp_h: u8,
     pub chirality: Chirality,
     pub num_rad_electron: usize,
     pub idx: usize,
     pub neighbor_idxs: Vec<usize>,
     pub smallest_ring_size: usize,
-    pub as_smi: String,
 }
 
 impl Atom {
     pub fn new(
         atomic_symbol: AtomicSymbol,
-        isotope: usize,
-        charge: isize,
+        isotope: u16,
+        charge: i8,
         aromatic: bool,
-        num_imp_h: usize,
+        num_imp_h: u8,
         chirality: Chirality,
         num_rad_electron: usize,
         idx: usize,
         neighbor_idxs: Vec<usize>,
         smallest_ring_size: usize,
-        as_smi: &str,
     ) -> Atom {
         Atom {
             atomic_symbol: atomic_symbol,
@@ -64,7 +62,6 @@ impl Atom {
             idx: idx,
             neighbor_idxs: neighbor_idxs,
             smallest_ring_size: smallest_ring_size,
-            as_smi: as_smi.to_owned(),
         }
     }
 
@@ -112,7 +109,7 @@ impl Atom {
     }
 
     pub fn total_valence<'a>(&'a self, mol: &'a Mol) -> usize {
-        self.explicit_valence(&mol) + self.num_imp_h
+        self.explicit_valence(&mol) + self.num_imp_h as usize
     }
 
     pub fn max_allowed_valence(&self) -> Option<usize> {
@@ -199,7 +196,7 @@ impl Atom {
     }
 
     pub fn total_degree(&self) -> usize {
-        self.neighbor_idxs.len() + self.num_imp_h
+        self.neighbor_idxs.len() + self.num_imp_h as usize
     }
 
     pub fn total_num_h<'a>(&'a self, mol: &'a Mol) -> usize {
@@ -209,7 +206,7 @@ impl Atom {
             if neighbor.atomic_symbol == AtomicSymbol::H { total_num_h += 1; }
         }
 
-        total_num_h
+        total_num_h as usize
     }
 
     pub fn has_double_bond<'a>(&'a self, mol: &'a Mol) -> bool {
@@ -238,7 +235,7 @@ impl Atom {
     }
 
     fn is_tet_chiral_center<'a>(&'a self, mol: &'a Mol) -> bool {
-        if self.total_num_h(mol) > 1 || self.num_imp_h + self.neighbor_idxs.len() < 4 { return false; }
+        if self.total_num_h(mol) > 1 || self.num_imp_h as usize + self.neighbor_idxs.len() < 4 { return false; }
 
         let mut neighbor_paths: Vec<Box<Vec<usize>>> = vec![];
         for start_idx in &self.neighbor_idxs {

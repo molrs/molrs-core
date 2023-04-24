@@ -59,10 +59,53 @@ impl Mol {
     }
 
     pub fn from_smiles(smi: &str) -> Result<Mol, String> {
-        let (atoms, bonds, ring_closures) = match smiles::smi_to_atoms_and_bonds_and_ring_closures(&smi) {
-            Ok((atoms, bonds, ring_closures)) => (atoms, bonds, ring_closures),
-            Err(string) => return Err(string),
+        let (mut smi_atoms, mut smi_bonds, ring_closures) = match smiles::parse_smi(&smi) {
+            Ok((smi_atoms, smi_bonds, ring_closures)) => (smi_atoms, smi_bonds, ring_closures),
+            Err(problem) => return Err(problem),
         };
+
+        // convert Default BondType to Single or Aromatic
+        for bond in smi_bonds.iter_mut().filter(|bond| bond.bond_type == BondType::Default) {
+            if smi_atoms[bond.atom_1_idx].aromatic && smi_atoms[bond.atom_2_idx].aromatic {
+                bond.bond_type = BondType::Aromatic;
+            } else {
+                bond.bond_type = BondType::Single;
+            }
+        }
+
+        let mut atoms = vec![];
+        for (i, smi_atom) in smi_atoms.into_iter().enumerate() {
+            atoms.push(Atom {
+                atomic_symbol: match AtomicSymbol::new(&smi_atom.atomic_symbol) {
+                    Ok(atomic_symbol) => atomic_symbol,
+                    Err(problem) => return Err(problem),
+                },
+                isotope: smi_atom.isotope,
+                charge: smi_atom.charge,
+                aromatic: smi_atom.aromatic,
+                num_imp_h: smi_atom.num_imp_h,
+                chirality: match Chirality::new(&smi_atom.chirality) {
+                    Ok(chirality) => chirality,
+                    Err(problem) => return Err(problem),
+                },
+                num_rad_electron: 0,
+                idx: i,
+                neighbor_idxs: vec![],
+                smallest_ring_size: 0,
+            });
+        }
+
+        let mut bonds = vec![];
+        for smi_bond in smi_bonds {
+            bonds.push(Bond::new(
+                smi_bond.atom_1_idx,
+                smi_bond.atom_2_idx,
+                smi_bond.bond_type,
+                0,
+            ));
+            atoms[smi_bond.atom_1_idx].neighbor_idxs.push(smi_bond.atom_2_idx);
+            atoms[smi_bond.atom_2_idx].neighbor_idxs.push(smi_bond.atom_1_idx);
+        }
 
         let mut mol = Mol {
             name: smi.to_owned(),
@@ -72,19 +115,22 @@ impl Mol {
             confs: vec![],
         };
 
-        // convert default bonds to single or aromatic
         // convert L-type metal - non-metal bonds to dative bonds
         // break X-type metal - non-metal bonds and charge separate
-        // explicit valence check
         mol.perceive_rings_from_ring_closures(&ring_closures);
-        // mol.perceive_unnecessary_stereochem();
-        // mol.add_2d_coordinates();
-        mol = match mol.to_kekulized() {
-            Ok(mol) => mol,
-            Err(string) => return Err(string),
-        };
+        // mol = match mol.kekulize() {
+        //     Ok(mol) => mol,
+        //     Err(string) => return Err(string),
+        // };
+        // aromatize
+        // match mol.check_valence() {
+        //     Ok(_) => (),
+        //     Err(problem) => return Err(format!("problem {} in smi {}", &problem, &smi)),
+        // };
         // set implicit hydrogens
+        // mol.perceive_unnecessary_stereochem();
         // canonicalize atom order
+        // mol.add_2d_coordinates();
 
         Ok(mol)
     }
@@ -93,16 +139,15 @@ impl Mol {
         unimplemented!();
     }
 
-    fn perceive_rings_from_ring_closures(&mut self, ring_links: &HashMap<usize, (usize, usize)>) {
-        for ring_link in ring_links.values() {
-            let atom_idx_1 = ring_link.0;
-            let atom_idx_2 = ring_link.1 as usize;
-            
+    fn perceive_rings_from_ring_closures(&mut self, ring_closures: &HashMap<usize, (usize, usize)>) {
+        for ring_closure in ring_closures.values() {
+            let atom_idx_1 = ring_closure.0;
+            let atom_idx_2 = ring_closure.1;
+
             let mut ring_paths: Vec<Box<Vec<usize>>> = vec![];
             for start_idx in &self.atoms[atom_idx_1].neighbor_idxs {
-                let start_idx = *start_idx;
-                if start_idx != atom_idx_2 {
-                    ring_paths.push(Box::new(vec![atom_idx_1, start_idx]));
+                if *start_idx != atom_idx_2 {
+                    ring_paths.push(Box::new(vec![atom_idx_1, *start_idx]));
                 }
             }
 
@@ -110,7 +155,7 @@ impl Mol {
                 let mut new_ring_paths: Vec<Box<Vec<usize>>> = vec![];
                 let mut reached_atom_2 = false;
                 for path in ring_paths.iter() {
-                    let path_head = *path.iter().rev().next().unwrap();
+                    let path_head = *path.last().unwrap();
                     if path_head == atom_idx_2 {
                         new_ring_paths.push(path.clone());
                         reached_atom_2 = true;
@@ -126,7 +171,6 @@ impl Mol {
                 }
                 ring_paths = new_ring_paths;
                 if reached_atom_2 {
-                    // pop ring paths that don't end with atom_idx_2
                     let mut new_ring_paths = vec![];
                     for _ in 0..ring_paths.len() {
                         let ring_path = ring_paths.pop().unwrap();
@@ -150,6 +194,7 @@ impl Mol {
                     }
                 }
                 let new_ring = Ring::new(&ring_path);
+                // i think we can sort the rings because order doesn't help in kekulizing anyway
                 let mut new_ring_is_in_rings = false;
                 for ring in &self.rings {
                     if new_ring.atom_idxs.len() != ring.atom_idxs.len() { continue; }
@@ -166,56 +211,14 @@ impl Mol {
                     }
                 }
                 if !new_ring_is_in_rings { self.rings.push(new_ring) }
-
-                // if !self.rings.contains(&ring) {
-                //     self.rings.push(Ring::new(&ring_path));
-                // }
             }
 
             self.rings.sort_by_key(|k| k.atom_idxs.len());
         }
     }
 
-    fn perceive_unnecessary_stereochem(&mut self) {
-        unimplemented!();
-
-        let mut stereochems_are_unnecessary: Vec<bool> = vec![];
-        for atom in &self.atoms {
-            if [Chirality::Undefined, Chirality::Clockwise, Chirality::CounterClockwise].contains(&atom.chirality) {
-                if !atom.is_chiral_center(self) {
-                    stereochems_are_unnecessary.push(true);
-                    continue;
-                } else { stereochems_are_unnecessary.push(false); }
-            }
-        }
-
-        for (atom, stereochem_is_unnecessary) in self.atoms.iter_mut().zip(stereochems_are_unnecessary.iter()) {
-            if *stereochem_is_unnecessary { atom.chirality = Chirality::Undefined; }
-        }
-    }
-
-    fn add_2d_coordinates(&mut self) {
-        // is automatically called when creating new mol
-        // adds 2d coordinates in place
-        unimplemented!();
-    }
-
-    pub fn to_smiles(&self) {
-        unimplemented!();
-    }
-
-    pub fn to_mol_block(&self) {
-        unimplemented!();
-    }
-
-    pub fn to_kekulized(&self) -> Result<Mol, String> {
-        let mut mol = Mol {
-            name: self.name.clone(),
-            atoms: self.atoms.clone(),
-            bonds: self.bonds.clone().into_iter().filter(|bond| bond.bond_type != BondType::Aromatic).collect(),
-            rings: self.rings.clone(),
-            confs: self.confs.clone(),
-        };
+    fn kekulize(&self) -> Result<Mol, String> {
+        let mut mol = self.clone();
 
         let mut conjugated_rings = vec![];
         for ring in &self.rings {
@@ -341,10 +344,14 @@ impl Mol {
                         for neighbor_idx in &self.atoms[*atom_idx].neighbor_idxs {
                             if !traversed_atom_idxs.contains(&neighbor_idx) && continous_chain.contains(&neighbor_idx) {
                                 neighbor_idxs.push(*neighbor_idx);
-                                if mol.atoms[*atom_idx].has_double_bond(&mol) {
-                                    mol.bonds.push(Bond::new(*atom_idx, *neighbor_idx, BondType::Single));
-                                } else {
-                                    mol.bonds.push(Bond::new(*atom_idx, *neighbor_idx, BondType::Double));
+                                let mut bond_idx = 0;
+                                for (i, bond) in mol.bonds.iter().enumerate() {
+                                    if (bond.atom_idx_1 == *atom_idx && bond.atom_idx_2 == *neighbor_idx) || (bond.atom_idx_2 == *atom_idx && bond.atom_idx_1 == *neighbor_idx) {
+                                        bond_idx = i;
+                                    }
+                                }
+                                if !mol.atoms[*atom_idx].has_double_bond(&mol) {
+                                    mol.bonds.get_mut(bond_idx).unwrap().bond_type = BondType::Double;
                                 }
                             }
                         }
@@ -357,12 +364,63 @@ impl Mol {
             }
         }
 
+        for bond in mol.bonds.iter_mut().filter(|bond| bond.bond_type == BondType::Aromatic) {
+            bond.bond_type = BondType::Single;
+        }
+
         for atom in &mol.atoms {
             if atom.aromatic { return Err(format!("aromatic atom remaining in kekulized mol")) }
         }
 
         Ok(mol)
     }
+
+    fn check_valence(&self) -> Result<(), String> {
+        for atom in &self.atoms {
+            let max_allowed_valence = match atom.max_allowed_valence() {
+                Some(max_allowed_valence) => max_allowed_valence,
+                None => return Err("unimplemented atom".to_owned()),
+            };
+            if atom.explicit_valence(self) > max_allowed_valence {
+                return Err("atom exceeded valence".to_owned());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn perceive_unnecessary_stereochem(&mut self) {
+        unimplemented!();
+
+        let mut stereochems_are_unnecessary: Vec<bool> = vec![];
+        for atom in &self.atoms {
+            if [Chirality::Undefined, Chirality::Clockwise, Chirality::CounterClockwise].contains(&atom.chirality) {
+                if !atom.is_chiral_center(self) {
+                    stereochems_are_unnecessary.push(true);
+                    continue;
+                } else { stereochems_are_unnecessary.push(false); }
+            }
+        }
+
+        for (atom, stereochem_is_unnecessary) in self.atoms.iter_mut().zip(stereochems_are_unnecessary.iter()) {
+            if *stereochem_is_unnecessary { atom.chirality = Chirality::Undefined; }
+        }
+    }
+
+    fn add_2d_coordinates(&mut self) {
+        // is automatically called when creating new mol
+        // adds 2d coordinates in place
+        unimplemented!();
+    }
+
+    pub fn to_smiles(&self) {
+        unimplemented!();
+    }
+
+    pub fn to_mol_block(&self) {
+        unimplemented!();
+    }
+
 
     pub fn to_aromatized(&self) -> Result<Mol, String> {
         unimplemented!();
@@ -393,6 +451,7 @@ impl Mol {
                     i,
                     num_atoms,
                     BondType::Single,
+                    0,
                 ));
                 mol.atoms.push(Atom::new(
                     AtomicSymbol::H,
@@ -405,7 +464,6 @@ impl Mol {
                     num_atoms,
                     vec![i],
                     0,
-                    "[H]",
                 ));
             }
         }
@@ -515,6 +573,7 @@ mod tests {
 
     #[test]
     fn playground() {
+        let smi = "Cc1ccoc1";
         // let smi = "C12CCC3C(CC3)CCC1C2";
         // let smi = "C[C@H](C)C([H])[H]";
         // let smi = "CS(=O)(=O)";
@@ -523,13 +582,13 @@ mod tests {
         // let smi = "c1ccc2ccccc2c1";
         // let smi = "c1ccc(Cc2ccc3ccccc3c2)cc1";
         // let smi = "c1ccc2cc(Cc3ccc4ccccc4c3)ccc2c1";
-        let smi = "o1ccc(cccc2)c12";
+        // let smi = "o1ccc(cccc2)c12";
         // let smi = "c1cccc(CCC2)c12";
         // let smi = "c1cc2c(ccc3ccoc32)[nH]1";
         // let smi = "O=c1ccn2ccccn12";
         let mol = Mol::from_smiles(&smi).unwrap();
         // let mol = mol.with_explicit_hydrogens();
         // let mol = mol.without_explicit_hydrogens();
-        // dbg!(&mol);
+        dbg!(&mol);
     }
 }

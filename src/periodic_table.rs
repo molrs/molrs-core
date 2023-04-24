@@ -1,3 +1,5 @@
+use std::default;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AtomicSymbol {
     H ,                                                                 He,
@@ -10,6 +12,10 @@ pub enum AtomicSymbol {
 
             La, Ce, Pr, Nd, Pm, Sm, Eu, Gd, Tb, Dy, Ho, Er, Tm, Yb, Lu,
             Ac, Th, Pa, U , Np, Pu, Am, Cm, Bk, Cf, Es, Fm, Md, No, Lr,
+}
+
+impl Default for AtomicSymbol {
+    fn default() -> AtomicSymbol { AtomicSymbol::H }
 }
 
 impl AtomicSymbol {
