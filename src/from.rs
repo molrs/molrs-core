@@ -14,47 +14,45 @@ fn parse_smiles(smi: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
             if c == ']' {
                 c_is_in_bracket = false;
             }
+        } else if c == '[' {
+            c_is_in_bracket = true;
+            atom_strs.push(String::from(c));
+            bond_strs.push(String::new());
+        } else if c == '-'
+            || c == '/'
+            || c == '\\'
+            || c == ':'
+            || c == '='
+            || c == '#'
+            || c == '$'
+            || c == '('
+            || c == ')'
+            || c == '%'
+            || c == '.'
+            || c.is_numeric()
+        {
+            bond_strs.last_mut().unwrap().push(c);
+        } else if c == 'b'
+            || c == 'c'
+            || c == 'n'
+            || c == 'o'
+            || c == 'p'
+            || c == 's'
+            || c == 'B'
+            || c == 'C'
+            || c == 'N'
+            || c == 'O'
+            || c == 'P'
+            || c == 'S'
+            || c == 'F'
+            || c == 'I'
+            || c == '*'
+        {
+            atom_strs.push(String::from(c));
+            bond_strs.push(String::new());
+        } else if c == 'l' || c == 'r' {
+            atom_strs.last_mut().unwrap().push(c);
         } else {
-            if c == '[' {
-                c_is_in_bracket = true;
-                atom_strs.push(String::from(c));
-                bond_strs.push(String::new());
-            } else if c == '-'
-                || c == '/'
-                || c == '\\'
-                || c == ':'
-                || c == '='
-                || c == '#'
-                || c == '$'
-                || c == '('
-                || c == ')'
-                || c == '%'
-                || c == '.'
-                || c.is_numeric()
-            {
-                bond_strs.last_mut().unwrap().push(c);
-            } else if c == 'b'
-                || c == 'c'
-                || c == 'n'
-                || c == 'o'
-                || c == 'p'
-                || c == 's'
-                || c == 'B'
-                || c == 'C'
-                || c == 'N'
-                || c == 'O'
-                || c == 'P'
-                || c == 'S'
-                || c == 'F'
-                || c == 'I'
-                || c == '*'
-            {
-                atom_strs.push(String::from(c));
-                bond_strs.push(String::new());
-            } else if c == 'l' || c == 'r' {
-                atom_strs.last_mut().unwrap().push(c);
-            } else {
-            }
         }
     }
 
@@ -93,7 +91,7 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
     atom_strs.iter().for_each(|atom_str| {
         molecule
             .graph
-            .add_node(Atom::from_str(&atom_str, molecule.graph.node_count()).unwrap());
+            .add_node(Atom::from_str(atom_str, molecule.graph.node_count()).unwrap());
     });
     // add non-ring_closure bonds to molecule
     let mut source_atom_index_stack = vec![0];
@@ -136,7 +134,7 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
     // add ring_closure bonds to molecule
     let mut ring_closures = HashMap::new();
     for (i, ring_closure_str) in ring_closure_strs.iter().enumerate() {
-        if ring_closure_str == "" {
+        if ring_closure_str.is_empty() {
             continue;
         }
         let source_atom_index = i;
@@ -151,17 +149,21 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
                 distance_from_percent += 1;
                 let last_element = ring_indices.last_mut().unwrap();
                 *last_element = *last_element * 10 + c.to_digit(10).unwrap();
+            } else if c == '-'
+                || c == '/'
+                || c == '\\'
+                || c == ':'
+                || c == '='
+                || c == '#'
+                || c == '$'
+            {
+                bond_char = c;
+            } else if c == '%' {
+                distance_from_percent = 0;
+            } else if c.is_numeric() {
+                ring_indices.push(c.to_digit(10).unwrap());
             } else {
-                if c == '-' || c == '/' || c == '\\' || c == ':' || c == '=' || c == '#' || c == '$'
-                {
-                    bond_char = c;
-                } else if c == '%' {
-                    distance_from_percent = 0;
-                } else if c.is_numeric() {
-                    ring_indices.push(c.to_digit(10).unwrap());
-                } else {
-                    return Err(format!("invalid char {} in smi {}", c, &smi));
-                }
+                return Err(format!("invalid char {} in smi {}", c, &smi));
             }
         }
 
