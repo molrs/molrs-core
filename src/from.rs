@@ -152,13 +152,8 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
                 let last_element = ring_indices.last_mut().unwrap();
                 *last_element = *last_element * 10 + c.to_digit(10).unwrap();
             } else {
-                if c == '-'
-                    || c == '/'
-                    || c == '\\'
-                    || c == ':'
-                    || c == '='
-                    || c == '#'
-                    || c == '$' {
+                if c == '-' || c == '/' || c == '\\' || c == ':' || c == '=' || c == '#' || c == '$'
+                {
                     bond_char = c;
                 } else if c == '%' {
                     distance_from_percent = 0;

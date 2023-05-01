@@ -61,16 +61,15 @@ impl Molecule {
                     Some(duplicate_element) => {
                         for (i, index) in path.iter().enumerate() {
                             if *index == duplicate_element {
-                                self.rings.push(Box::new(path[(i+1)..].to_owned()));
+                                self.rings.push(Box::new(path[(i + 1)..].to_owned()));
                                 break;
                             }
                         }
                         *path = Box::new(vec![]);
                     }
-                    None => ()
+                    None => (),
                 };
             }
-
         }
 
         let mut rings = self.rings.clone();

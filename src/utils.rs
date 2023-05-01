@@ -1,4 +1,4 @@
-use std::{collections::HashSet};
+use std::collections::HashSet;
 
 pub fn get_duplicate_element(vector: &Vec<usize>) -> Option<usize> {
     let mut set = HashSet::new();
