@@ -19,7 +19,7 @@ impl Molecule {
             paths.push(Box::new(vec![0, neighbor.index()]));
         }
 
-        while paths.len() > 0 {
+        while !paths.is_empty() {
             let mut new_paths = vec![];
             for path in paths.iter_mut() {
                 if path.len() == 0 {
@@ -35,7 +35,7 @@ impl Molecule {
                     .collect();
                 let neighbors_len = neighbors.len();
                 if neighbors_len == 0 {
-                    *path = Box::new(vec![]);
+                    *path = Box::<std::vec::Vec<usize>>::default();
                 } else if neighbors_len == 1 {
                     path.push(neighbors[0]);
                 } else {
@@ -57,18 +57,15 @@ impl Molecule {
             }
 
             for path in paths.iter_mut() {
-                match get_duplicate_element(path) {
-                    Some(duplicate_element) => {
-                        for (i, index) in path.iter().enumerate() {
-                            if *index == duplicate_element {
-                                self.rings.push(Box::new(path[(i + 1)..].to_owned()));
-                                break;
-                            }
+                if let Some(duplicate_element) = get_duplicate_element(path) {
+                    for (i, index) in path.iter().enumerate() {
+                        if *index == duplicate_element {
+                            self.rings.push(Box::new(path[(i + 1)..].to_owned()));
+                            break;
                         }
-                        *path = Box::new(vec![]);
                     }
-                    None => (),
-                };
+                    *path = Box::<std::vec::Vec<usize>>::default();
+                }
             }
         }
 
