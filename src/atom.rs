@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::periodic_table::AtomicSymbol;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -8,16 +10,20 @@ pub enum Chirality {
     CounterClockwise,
 }
 
-impl Chirality {
-    pub fn from_str(chirality: &str) -> Result<Chirality, String> {
-        if chirality == "" {
+pub struct ChiralityParseError;
+
+impl FromStr for Chirality {
+    type Err = ChiralityParseError;
+
+    fn from_str(chirality: &str) -> Result<Self, Self::Err> {
+        if chirality.is_empty() {
             Ok(Chirality::Undefined)
         } else if chirality == "@@" {
             Ok(Chirality::Clockwise)
         } else if chirality == "@" {
             Ok(Chirality::CounterClockwise)
         } else {
-            return Err("invalid chirality".to_string());
+            return Result::Err(ChiralityParseError);
         }
     }
 }
@@ -45,7 +51,7 @@ enum NextValue {
 
 impl Atom {
     pub fn from_str(atom_str: &str, index: usize) -> Result<Atom, String> {
-        if atom_str.chars().next().unwrap() == '[' {
+        if atom_str.starts_with('[') {
             let mut atomic_symbol = String::new();
             let mut atom = Atom::default();
             let mut next_value = NextValue::Isotope;
@@ -53,50 +59,48 @@ impl Atom {
                 if c == '[' {
                 } else if c == ']' {
                     break;
-                } else {
-                    if c.is_numeric() {
-                        let c_as_int = c.to_digit(10).unwrap();
-                        match next_value {
-                            NextValue::Isotope => {
-                                atom.isotope = atom.isotope * 10 + c_as_int as u16;
-                            }
-                            NextValue::Charge(is_positive) => {
-                                if is_positive {
-                                    atom.charge = c_as_int as i8;
-                                } else {
-                                    atom.charge = -(c_as_int as i8);
-                                }
-                            }
-                            NextValue::NumImpH => {
-                                atom.num_imp_h = c_as_int as u8;
+                } else if c.is_numeric() {
+                    let c_as_int = c.to_digit(10).unwrap();
+                    match next_value {
+                        NextValue::Isotope => {
+                            atom.isotope = atom.isotope * 10 + c_as_int as u16;
+                        }
+                        NextValue::Charge(is_positive) => {
+                            if is_positive {
+                                atom.charge = c_as_int as i8;
+                            } else {
+                                atom.charge = -(c_as_int as i8);
                             }
                         }
-                    } else if c.is_alphabetic() {
-                        let len_atomic_symbol = atomic_symbol.chars().count();
-                        if len_atomic_symbol == 0 {
-                            atomic_symbol.push(c);
-                            atom.aromatic = c.is_lowercase();
-                        } else if len_atomic_symbol == 1 && c != 'H' {
-                            atomic_symbol.push(c);
-                        } else if c == 'H' {
-                            atom.num_imp_h = 1;
-                            next_value = NextValue::NumImpH;
-                        } else {
+                        NextValue::NumImpH => {
+                            atom.num_imp_h = c_as_int as u8;
                         }
-                    } else if c == '@' {
-                        atom.chirality = match atom.chirality {
-                            Chirality::Undefined => Chirality::CounterClockwise,
-                            Chirality::CounterClockwise => Chirality::Clockwise,
-                            _ => return Err(format!("chirality error in atom_str {}", &atom_str)),
-                        }
-                    } else if c == '+' {
-                        atom.charge = 1;
-                        next_value = NextValue::Charge(true);
-                    } else if c == '-' {
-                        atom.charge = -1;
-                        next_value = NextValue::Charge(false);
+                    }
+                } else if c.is_alphabetic() {
+                    let len_atomic_symbol = atomic_symbol.chars().count();
+                    if len_atomic_symbol == 0 {
+                        atomic_symbol.push(c);
+                        atom.aromatic = c.is_lowercase();
+                    } else if len_atomic_symbol == 1 && c != 'H' {
+                        atomic_symbol.push(c);
+                    } else if c == 'H' {
+                        atom.num_imp_h = 1;
+                        next_value = NextValue::NumImpH;
                     } else {
                     }
+                } else if c == '@' {
+                    atom.chirality = match atom.chirality {
+                        Chirality::Undefined => Chirality::CounterClockwise,
+                        Chirality::CounterClockwise => Chirality::Clockwise,
+                        _ => return Err(format!("chirality error in atom_str {}", &atom_str)),
+                    }
+                } else if c == '+' {
+                    atom.charge = 1;
+                    next_value = NextValue::Charge(true);
+                } else if c == '-' {
+                    atom.charge = -1;
+                    next_value = NextValue::Charge(false);
+                } else {
                 }
             }
             let atomic_symbol = match AtomicSymbol::from_str(&atomic_symbol) {
