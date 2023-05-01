@@ -19,14 +19,6 @@ pub fn visualize() {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use atom::Atom;
-    // use bond::Bond;
-    use petgraph::dot::{Config, Dot};
-    use write;
-    // use petgraph::graph::EdgeReference;
-    // use petgraph::visit::EdgeRef;
-    use petgraph::{Graph, Undirected};
-    use std::fs;
 
     #[test]
     fn test_from_smiles() {
