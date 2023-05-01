@@ -19,7 +19,7 @@ jobs:
     - name: install clippy
       run: rustup component add clippy
     - name: clippy
-      run: cargo clippy -D warnings
+      run: cargo clippy -- -D warnings
 
   fmt:
     runs-on: ubuntu-latest
@@ -39,7 +39,7 @@ jobs:
     - name: audit
       run: cargo audit
 
-  check:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
