@@ -1,34 +1,28 @@
-image: "rust:latest"
+on: [push, pull_request]
 
-default:
-  before_script:
-    - rustc --version 
-    - cargo --version
+name: rust
 
-stages:
-  - test
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: install cargo-tarpaulin
+      run: cargo install cargo-tarpaulin
+    - name: install clippy
+      run: rustup component add clippy
+    - name: install rustfmt
+      run: rustup component add rustfmt
+    - name: install cargo-audit
+      run: cargo install cargo-audit
 
-test-code:
-  stage: test
-  script:
-    - cargo test
-    - cargo install cargo-tarpaulin
-    - cargo tarpaulin --ignore-tests
-
-lint-code:
-  stage: test
-  script:
-    - rustup component add clippy
-    - cargo clippy -- -D warnings
-    
-format-code:
-  stage: test
-  script:
-    - rustup component add rustfmt
-    - cargo fmt -- --check
-
-audit-code:
-  stage: test
-  script:
-    - cargo install cargo-audit
-    - cargo audit
+    - name: test
+      run: cargo test
+    - name: tarpauline
+      run: cargo tarpaulin --ignore-tests
+    - name: clippy
+      run: cargo clippy -D warnings
+    - name: fmt
+      run: cargo fmt --check
+    - name: audit
+      run: cargo audit
