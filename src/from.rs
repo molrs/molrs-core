@@ -73,27 +73,18 @@ fn parse_smiles(smi: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
     (atom_strs, bond_strs, ring_closure_strs)
 }
 
-#[derive(Debug)]
-enum RingClosure {
-    OneAtom(usize),
-    Used,
-}
-
-pub fn smiles(smi: &str) -> Result<Molecule, String> {
-    if smi.chars().next().is_none() {
-        return Err("SMILES string is empty".to_owned());
-    }
-
-    let mut molecule = Molecule::default();
-
-    let (atom_strs, bond_strs, ring_closure_strs) = parse_smiles(smi);
-    // add atoms to molecule
+fn add_atoms_to_molecule(molecule: &mut Molecule, atom_strs: &[String]) {
     atom_strs.iter().for_each(|atom_str| {
         molecule
             .graph
             .add_node(Atom::from_str(atom_str, molecule.graph.node_count()).unwrap());
     });
-    // add non-ring_closure bonds to molecule
+}
+
+fn add_non_ring_closure_bonds_to_molecule(
+    molecule: &mut Molecule,
+    bond_strs: &[String],
+) -> Result<(), ()> {
     let mut source_atom_index_stack = vec![0];
     for (i, bond_str) in bond_strs.iter().enumerate() {
         let target_atom_index = i + 1;
@@ -114,7 +105,7 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
             {
                 bond_char = c;
             } else {
-                return Err(format!("invalid char {} in smi {}", c, &smi));
+                return Err(());
             }
         }
         if bond_char != '.' {
@@ -124,14 +115,27 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
                 match BondType::from_char(bond_char) {
                     Ok(bond_type) => bond_type,
                     Err(_) => {
-                        return Err(format!("invalid bond char {} in smi {}", bond_char, &smi))
+                        return Err(());
                     }
                 },
             );
             source_atom_index_stack.push(target_atom_index);
         }
     }
-    // add ring_closure bonds to molecule
+
+    Ok(())
+}
+
+#[derive(Debug)]
+enum RingClosure {
+    OneAtom(usize),
+    Used,
+}
+
+fn add_ring_closure_bonds_to_molecule(
+    molecule: &mut Molecule,
+    ring_closure_strs: &[String],
+) -> Result<(), ()> {
     let mut ring_closures = HashMap::new();
     for (i, ring_closure_str) in ring_closure_strs.iter().enumerate() {
         if ring_closure_str.is_empty() {
@@ -163,7 +167,7 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
             } else if c.is_numeric() {
                 ring_indices.push(c.to_digit(10).unwrap());
             } else {
-                return Err(format!("invalid char {} in smi {}", c, &smi));
+                return Err(());
             }
         }
 
@@ -179,10 +183,7 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
                         ring_closures.insert(ring_index, RingClosure::Used);
                     }
                     RingClosure::Used => {
-                        return Err(format!(
-                            "ring index {} was reused in smi {}",
-                            ring_index, &smi
-                        ));
+                        return Err(());
                     }
                 },
                 None => {
@@ -191,6 +192,28 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
             }
         }
     }
+
+    Ok(())
+}
+
+pub fn smiles(smi: &str) -> Result<Molecule, String> {
+    if smi.chars().next().is_none() {
+        return Err("SMILES string is empty".to_owned());
+    }
+
+    let mut molecule = Molecule::default();
+
+    let (atom_strs, bond_strs, ring_closure_strs) = parse_smiles(smi);
+
+    add_atoms_to_molecule(&mut molecule, &atom_strs);
+    match add_non_ring_closure_bonds_to_molecule(&mut molecule, &bond_strs) {
+        Ok(_) => (),
+        Err(_) => return Err(format!("error in smi {}", &smi)),
+    };
+    match add_ring_closure_bonds_to_molecule(&mut molecule, &ring_closure_strs) {
+        Ok(_) => (),
+        Err(_) => return Err(format!("error in smi {}", &smi)),
+    };
 
     molecule.perceive_rings();
     molecule.perceive_default_bonds();
