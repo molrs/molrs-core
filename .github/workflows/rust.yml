@@ -9,7 +9,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: install cargo-tarpaulin
       run: cargo install cargo-tarpaulin
-    - name: tarpauline
+    - name: tarpaulin
       run: cargo tarpaulin --ignore-tests
 
   clippy:
