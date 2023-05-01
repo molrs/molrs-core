@@ -23,7 +23,7 @@ impl FromStr for Chirality {
         } else if chirality == "@" {
             Ok(Chirality::CounterClockwise)
         } else {
-            return Result::Err(ChiralityParseError);
+            return Err(ChiralityParseError);
         }
     }
 }
@@ -105,7 +105,7 @@ impl Atom {
             }
             let atomic_symbol = match AtomicSymbol::from_str(&atomic_symbol) {
                 Ok(atomic_symbol) => atomic_symbol,
-                Err(err) => return Err(err),
+                Err(_) => return Err(format!("failed to parse atom {}", &atom_str)),
             };
             atom.index = index;
             atom.atomic_number = atomic_symbol.atomic_number();
@@ -125,7 +125,7 @@ impl Atom {
             }
             let atomic_symbol = match AtomicSymbol::from_str(&atomic_symbol) {
                 Ok(atomic_symbol) => atomic_symbol,
-                Err(err) => return Err(err),
+                Err(_) => return Err(format!("failed to parse atom {}", &atom_str)),
             };
             atom.index = index;
             atom.atomic_number = atomic_symbol.atomic_number();

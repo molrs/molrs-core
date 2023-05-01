@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum AtomicSymbol {
     Star,
@@ -128,8 +130,12 @@ impl Default for AtomicSymbol {
     }
 }
 
-impl AtomicSymbol {
-    pub fn from_str(symbol: &str) -> Result<AtomicSymbol, String> {
+pub struct AtomicSymbolParseError;
+
+impl FromStr for AtomicSymbol {
+    type Err = AtomicSymbolParseError;
+
+    fn from_str(symbol: &str) -> Result<Self, Self::Err> {
         let symbol = symbol.to_lowercase();
         if symbol == "*" {
             Ok(AtomicSymbol::Star)
@@ -370,10 +376,12 @@ impl AtomicSymbol {
         } else if symbol == "lr" {
             Ok(AtomicSymbol::Lr)
         } else {
-            Err(symbol.to_string())
+            Err(AtomicSymbolParseError)
         }
     }
+}
 
+impl AtomicSymbol {
     pub fn to_string(&self) -> &str {
         match self {
             AtomicSymbol::Star => "*",
@@ -876,7 +884,7 @@ impl AtomicSymbol {
 
         let atomic_number = self.atomic_number();
         if atomic_number <= 10 || !expanded_octet {
-            4 - (4 - n_val_electrons_with_charge).abs() as u8
+            4 - (4 - n_val_electrons_with_charge).unsigned_abs()
         } else if atomic_number <= 54 {
             (4 - (4 - n_val_electrons_with_charge).abs()
                 + 2 * (n_val_electrons_with_charge - 4).min(n_val_electrons - 4)) as u8
