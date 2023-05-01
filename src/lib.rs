@@ -57,26 +57,6 @@ mod tests {
         // let smi = "C%01CC=%01";
         let mol = from::smiles(smi).unwrap();
         dbg!(&mol);
-        write::dot_png_file(&mol, "graph.png");
-    }
-
-    #[test]
-    fn test_atom() {
-        // let mut graph: Graph<Atom, Bond, Undirected> = Graph::new_undirected();
-        // graph.add_node(Atom{idx: graph.node_count(), atomic_number: 6});
-        // graph.add_node(Atom{idx: graph.node_count(), atomic_number: 6});
-        // graph.add_edge(0.into(), 1.into(), Bond{atom_idx_1: 0, atom_idx_2: 1, bond_type: bond::BondType::Default});
-        // dbg!(&graph);
-        // dbg!(graph.edges(0.into()).collect::<Vec<EdgeReference<Bond>>>()[0].source());
-    }
-
-    #[test]
-    fn test_graph() {
-        let mut graph: Graph<u8, u8, Undirected> = Graph::new_undirected();
-        graph.add_node(1);
-        graph.add_node(1);
-        graph.add_edge(0.into(), 1.into(), 1);
-        let dot_str = format!("{:?}", Dot::with_config(&graph, &[Config::EdgeNoLabel]));
-        fs::write("graph.dot", dot_str).expect("unable to write graph.dot");
+        // write::dot_png_file(&mol, "graph.png");
     }
 }
