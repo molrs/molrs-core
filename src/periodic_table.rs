@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum AtomicSymbol {
+    #[default]
     Star,
     H,
     He,
@@ -122,12 +123,6 @@ pub enum AtomicSymbol {
     Md,
     No,
     Lr,
-}
-
-impl Default for AtomicSymbol {
-    fn default() -> AtomicSymbol {
-        AtomicSymbol::Star
-    }
 }
 
 pub struct AtomicSymbolParseError;
