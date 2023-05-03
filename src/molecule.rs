@@ -86,6 +86,8 @@ impl Molecule {
                 self.rings.remove(i);
             }
         }
+
+        self.rings.sort_by_key(|ring| ring.len());
     }
 
     pub fn perceive_default_bonds(&mut self) {
@@ -138,11 +140,98 @@ impl Molecule {
         Ok(())
     }
 
-    // pub fn kekulized(&self) -> Result<Molecule, String> {
-    //     let mut mol = self.clone();
+    pub fn kekulized(&self) -> Result<Molecule, String> {
+        let mut mol = self.clone();
 
-    //     Ok(mol)
-    // }
+        let mut conjugated_rings = vec![];
+        for ring in &self.rings {
+            if ring.iter().all(|index| {
+                self.graph.node_weight((*index).into()).unwrap().aromatic
+                    || self
+                        .graph
+                        .edges((*index).into())
+                        .any(|edge| *edge.weight() == BondType::Double)
+            }) {
+                conjugated_rings.push(ring.clone())
+            }
+        }
+
+        let mut needs_kekulization = vec![true];
+        while needs_kekulization.iter().any(|val| *val) {
+            needs_kekulization = vec![];
+            for conjugated_ring in &conjugated_rings {
+                let mut contiguous_paths: Vec<Box<Vec<usize>>> = vec![];
+                for index in conjugated_ring.iter() {
+                    let atom = mol.graph.node_weight((*index).into()).unwrap();
+                    let maximum_valence = atom.atomic_symbol.maximum_valence(atom.charge, true);
+                    let bond_order = mol
+                        .graph
+                        .edges((*index).into())
+                        .map(|x| x.weight().to_float())
+                        .sum::<f64>() as u8
+                        + atom.num_imp_h;
+                    if !mol
+                        .graph
+                        .edges((*index).into())
+                        .any(|edge| *edge.weight() == BondType::Double)
+                        && bond_order <= maximum_valence
+                    {
+                        for path in contiguous_paths.iter_mut() {
+                            if self
+                                .graph
+                                .find_edge((*index).into(), (*path.last().unwrap()).into())
+                                .is_some()
+                            {
+                                path.push(*index);
+                            } else if self
+                                .graph
+                                .find_edge((*index).into(), (*path.first().unwrap()).into())
+                                .is_some()
+                            {
+                                let mut new_path = vec![*index];
+                                new_path.extend(path.iter());
+                                *path = Box::new(new_path);
+                            }
+                        }
+                        if !contiguous_paths.iter().any(|path| path.contains(index)) {
+                            contiguous_paths.push(Box::new(vec![*index]));
+                        }
+                    }
+                }
+
+                for path in contiguous_paths.iter() {
+                    if path.len() == 1 {
+                        return Err("kekulization failed - isolated aromatic atom".to_owned());
+                    } else if path.len() % 2 == 1 {
+                        needs_kekulization.push(true);
+                    } else {
+                        needs_kekulization.push(false);
+                        for i in 0..(path.len() / 2) {
+                            mol.graph.update_edge(
+                                path[i * 2].into(),
+                                path[i * 2 + 1].into(),
+                                BondType::Double,
+                            );
+                        }
+                    }
+                }
+            }
+            if needs_kekulization.is_empty() {
+                break;
+            }
+            if needs_kekulization.iter().all(|val| *val) {
+                return Err("kekulization failed - all paths have odd length".to_owned());
+            }
+        }
+
+        for edge in mol.graph.edge_weights_mut() {
+            if *edge == BondType::Aromatic {
+                *edge = BondType::Single;
+            }
+        }
+
+        Ok(mol)
+    }
 
     // pub fn aromatized(&self) -> Result<Molecule, String> {
     //     let mut mol = self.clone();

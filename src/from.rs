@@ -217,14 +217,18 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
 
     molecule.perceive_rings();
     molecule.perceive_default_bonds();
-    // molecule = match molecule.kekulized() {
-    //     Ok(mol) => mol,
-    //     Err(_) => return Err(format!("kekulization failed for smi {}", &smi)),
-    // };
-    // match molecule.perceive_implicit_hydrogens() {
-    //     Ok(_) => (),
-    //     Err(_) => return Err(format!("valence problems in smi {}", &smi)),
-    // };
+    molecule = match molecule.kekulized() {
+        Ok(mol) => mol,
+        Err(err) => {
+            println!("{}", &err);
+            return Err(format!("kekulization failed for smi {}", &smi));
+        }
+    };
+    match molecule.perceive_implicit_hydrogens() {
+        Ok(_) => (),
+        Err(_) => return Err(format!("valence problems in smi {}", &smi)),
+    };
+    // molecule.perceive_radicals();
     // molecule = match molecule.aromatized() {
     //     Ok(mol) => mol,
     //     Err(_) => return Err(format!("aromatizaton failed for smi {}", &smi)),
