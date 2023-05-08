@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use petgraph::{Graph, Undirected};
 
 use crate::{atom::Atom, bond::BondType, utils::get_duplicate_element};
@@ -248,4 +250,89 @@ impl Molecule {
 
     //     Ok(mol)
     // }
+
+    fn unique_rings(&self) -> Vec<Vec<usize>> {
+        let mut unique_rings = vec![];
+        let mut unique_atoms = HashSet::new();
+        for ring in &self.rings {
+            if !ring.iter().all(|index| unique_atoms.contains(index)) {
+                ring.iter().for_each(|index| { unique_atoms.insert(*index); });
+                unique_rings.push(*ring.clone());
+            }
+        }
+        unique_rings.reverse();
+
+        unique_rings
+    }
+
+    pub fn coordinates_2d(&self) -> Vec<Option<[f64; 2]>> {
+        let mut unique_rings = vec![];
+        let mut unique_atoms = HashSet::new();
+        for ring in &self.rings {
+            if !ring.iter().all(|index| unique_atoms.contains(index)) {
+                ring.iter().for_each(|index| { unique_atoms.insert(*index); });
+                unique_rings.push(ring.clone());
+            }
+        }
+        unique_rings.reverse();
+        dbg!(&unique_rings);
+
+        let mut coords: Vec<Option<[f64; 2]>> = (0..self.graph.node_count()).map(|_| None).collect();
+        coords[0] = Some([0.0, 0.0]);
+        let n_neighbors = self.graph.neighbors(0.into()).count();
+        if n_neighbors == 1 {
+            coords[self.graph.neighbors(0.into()).next().unwrap().index()] = Some([0.0, 1.0]);
+        } else if n_neighbors == 2 {
+            let mut neighbors_iter = self.graph.neighbors(0.into());
+            coords[neighbors_iter.next().unwrap().index()] = Some([0.0, 1.0]);
+            coords[neighbors_iter.next().unwrap().index()] = Some([-0.866, -0.5]);
+        } else if n_neighbors == 3 {
+            unimplemented!();
+        } else {
+            unimplemented!();
+        }
+
+        for (i, coord) in coords.iter_mut().enumerate().skip(1) {
+            if coord.is_some() {
+                continue;
+            }
+
+            let mut rings_to_remove = vec![];
+            for (j, ring) in unique_rings.iter().enumerate() {
+                if ring.contains(&i) {
+                    rings_to_remove.push(j);
+                    unimplemented!();
+                }
+            }
+            for j in rings_to_remove.iter().rev() {
+                unique_rings.remove(*j);
+            }
+            if coord.is_some() {
+                continue;
+            }
+
+            let n_neighbors = self.graph.neighbors(i.into()).count();
+            if n_neighbors == 1 {
+
+            }
+        }
+
+        // coords.iter().map(|coord| coord.unwrap()).collect()
+        coords
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_coordinates_2d() {
+        // let smi = "CCC";
+        let smi = "C(C)C";
+        // let smi = "c12ncccc1[nH]cc2";
+        // let smi = "C1(CC2)CC2CCC1";
+        let mol = crate::from::smiles(smi).unwrap();
+        // dbg!(&mol);
+        dbg!(mol.coordinates_2d());
+    }
 }
