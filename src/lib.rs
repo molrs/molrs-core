@@ -34,7 +34,7 @@ mod tests {
         // let smi = "CS=O";
         // let smi = "CCl";
         // let smi = "ClC";
-        // let smi = "[CH3]";
+        let smi = "[CH3-]";
         // let smi = "C[CH2-]C";
         // let smi = "CCC";
         // let smi = "C1CC1";
@@ -43,7 +43,7 @@ mod tests {
         // let smi = "c1ccccc1";
         // let smi = "c1=ccccc1";
         // let smi = "c1c=cccc1";
-        let smi = "c12ncccc1[nH]cc2";
+        // let smi = "c12ncccc1[nH]cc2";
         // let smi = "c3(cco4)c4CCC3";
         // let smi = "c1%02ncccc1[nH]cc%02";
         // let smi = "C1OC=CC=1";
