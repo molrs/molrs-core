@@ -7,7 +7,7 @@ use crate::{atom::Atom, bond::BondType, utils::get_duplicate_element};
 #[derive(Debug, Clone, Default)]
 pub struct Molecule {
     pub graph: Graph<Atom, BondType, Undirected, usize>,
-    pub rings: Vec<Box<Vec<usize>>>,
+    pub rings: Vec<Vec<usize>>,
 }
 
 impl Molecule {
@@ -18,13 +18,13 @@ impl Molecule {
 
         let mut paths = vec![];
         for neighbor in self.graph.neighbors(0.into()) {
-            paths.push(Box::new(vec![0, neighbor.index()]));
+            paths.push(vec![0, neighbor.index()]);
         }
 
         while !paths.is_empty() {
             let mut new_paths = vec![];
             for path in paths.iter_mut() {
-                if path.len() == 0 {
+                if path.is_empty() {
                     continue;
                 }
                 let last_atom_index = path.last().unwrap();
@@ -37,7 +37,7 @@ impl Molecule {
                     .collect();
                 let neighbors_len = neighbors.len();
                 if neighbors_len == 0 {
-                    *path = Box::<std::vec::Vec<usize>>::default();
+                    *path = vec![];
                 } else if neighbors_len == 1 {
                     path.push(neighbors[0]);
                 } else {
@@ -50,7 +50,7 @@ impl Molecule {
                 }
             }
             for i in (0..paths.len()).rev() {
-                if paths[i].len() == 0 {
+                if paths[i].is_empty() {
                     paths.remove(i);
                 }
             }
@@ -62,11 +62,11 @@ impl Molecule {
                 if let Some(duplicate_element) = get_duplicate_element(path) {
                     for (i, index) in path.iter().enumerate() {
                         if *index == duplicate_element {
-                            self.rings.push(Box::new(path[(i + 1)..].to_owned()));
+                            self.rings.push(path[(i + 1)..].to_owned());
                             break;
                         }
                     }
-                    *path = Box::<std::vec::Vec<usize>>::default();
+                    *path = vec![];
                 }
             }
         }
@@ -256,8 +256,10 @@ impl Molecule {
         let mut unique_atoms = HashSet::new();
         for ring in &self.rings {
             if !ring.iter().all(|index| unique_atoms.contains(index)) {
-                ring.iter().for_each(|index| { unique_atoms.insert(*index); });
-                unique_rings.push(*ring.clone());
+                ring.iter().for_each(|index| {
+                    unique_atoms.insert(*index);
+                });
+                unique_rings.push(ring.clone());
             }
         }
         unique_rings.reverse();
@@ -266,18 +268,10 @@ impl Molecule {
     }
 
     pub fn coordinates_2d(&self) -> Vec<Option<[f64; 2]>> {
-        let mut unique_rings = vec![];
-        let mut unique_atoms = HashSet::new();
-        for ring in &self.rings {
-            if !ring.iter().all(|index| unique_atoms.contains(index)) {
-                ring.iter().for_each(|index| { unique_atoms.insert(*index); });
-                unique_rings.push(ring.clone());
-            }
-        }
-        unique_rings.reverse();
-        dbg!(&unique_rings);
+        let mut unique_rings = self.unique_rings();
 
-        let mut coords: Vec<Option<[f64; 2]>> = (0..self.graph.node_count()).map(|_| None).collect();
+        let mut coords: Vec<Option<[f64; 2]>> =
+            (0..self.graph.node_count()).map(|_| None).collect();
         coords[0] = Some([0.0, 0.0]);
         let n_neighbors = self.graph.neighbors(0.into()).count();
         if n_neighbors == 1 {
@@ -312,9 +306,7 @@ impl Molecule {
             }
 
             let n_neighbors = self.graph.neighbors(i.into()).count();
-            if n_neighbors == 1 {
-
-            }
+            if n_neighbors == 1 {}
         }
 
         // coords.iter().map(|coord| coord.unwrap()).collect()
