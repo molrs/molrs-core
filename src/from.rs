@@ -75,8 +75,7 @@ fn parse_smiles(smi: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
 
 fn add_atoms_to_molecule(mol: &mut Molecule, atom_strs: &[String]) {
     atom_strs.iter().for_each(|atom_str| {
-        mol
-            .graph
+        mol.graph
             .add_node(Atom::from_str(atom_str, mol.graph.node_count()).unwrap());
     });
 }
