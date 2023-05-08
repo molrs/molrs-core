@@ -111,29 +111,35 @@ impl Molecule {
 
     pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), String> {
         let mut num_imp_hs = vec![];
+        let mut num_rad_electrons = vec![];
         for (i, atom) in self.graph.node_weights().enumerate() {
+            let maximum_valence = atom.atomic_symbol.maximum_valence(atom.charge, true);
+            let bond_order = self
+                .graph
+                .edges(i.into())
+                .map(|x| x.weight().to_float())
+                .sum::<f64>() as u8;
+            if bond_order > maximum_valence {
+                return Err("bond order is too high".to_owned());
+            }
+            let mut num_imp_h = maximum_valence - bond_order;
+            while num_imp_h > atom.atomic_symbol.maximum_valence(atom.charge, false) {
+                num_imp_h -= 2;
+            }
             if atom.needs_update {
-                let maximum_valence = atom.atomic_symbol.maximum_valence(atom.charge, true);
-                let bond_order = self
-                    .graph
-                    .edges(i.into())
-                    .map(|x| x.weight().to_float())
-                    .sum::<f64>() as u8;
-                if bond_order > maximum_valence {
-                    return Err("bond order is too high".to_owned());
-                }
-                let mut num_imp_h = maximum_valence - bond_order;
-                while num_imp_h > atom.atomic_symbol.maximum_valence(atom.charge, false) {
-                    num_imp_h -= 2;
-                }
                 num_imp_hs.push(num_imp_h);
+            } else {
+                num_rad_electrons.push(num_imp_h - atom.num_imp_h)
             }
         }
         num_imp_hs.reverse();
+        num_rad_electrons.reverse();
         for atom in self.graph.node_weights_mut() {
             if atom.needs_update {
                 atom.needs_update = false;
                 atom.num_imp_h = num_imp_hs.pop().unwrap();
+            } else {
+                atom.num_rad_electron = num_rad_electrons.pop().unwrap();
             }
         }
 
@@ -230,11 +236,15 @@ impl Molecule {
             }
         }
 
+        for atom in mol.graph.node_weights_mut() {
+            atom.aromatic = false;
+        }
+
         Ok(mol)
     }
 
     // pub fn aromatized(&self) -> Result<Molecule, String> {
-    //     let mut mol = self.clone();
+    //     let mol = self.clone();
 
     //     Ok(mol)
     // }

@@ -73,16 +73,16 @@ fn parse_smiles(smi: &str) -> (Vec<String>, Vec<String>, Vec<String>) {
     (atom_strs, bond_strs, ring_closure_strs)
 }
 
-fn add_atoms_to_molecule(molecule: &mut Molecule, atom_strs: &[String]) {
+fn add_atoms_to_molecule(mol: &mut Molecule, atom_strs: &[String]) {
     atom_strs.iter().for_each(|atom_str| {
-        molecule
+        mol
             .graph
-            .add_node(Atom::from_str(atom_str, molecule.graph.node_count()).unwrap());
+            .add_node(Atom::from_str(atom_str, mol.graph.node_count()).unwrap());
     });
 }
 
 fn add_non_ring_closure_bonds_to_molecule(
-    molecule: &mut Molecule,
+    mol: &mut Molecule,
     bond_strs: &[String],
 ) -> Result<(), ()> {
     let mut source_atom_index_stack = vec![0];
@@ -109,7 +109,7 @@ fn add_non_ring_closure_bonds_to_molecule(
             }
         }
         if bond_char != '.' {
-            molecule.graph.add_edge(
+            mol.graph.add_edge(
                 source_atom_index_stack.pop().unwrap().into(),
                 target_atom_index.into(),
                 match BondType::from_char(bond_char) {
@@ -133,7 +133,7 @@ enum RingClosure {
 }
 
 fn add_ring_closure_bonds_to_molecule(
-    molecule: &mut Molecule,
+    mol: &mut Molecule,
     ring_closure_strs: &[String],
 ) -> Result<(), ()> {
     let mut ring_closures = HashMap::new();
@@ -175,7 +175,7 @@ fn add_ring_closure_bonds_to_molecule(
             match ring_closures.get(&ring_index) {
                 Some(ring_closure) => match ring_closure {
                     RingClosure::OneAtom(ring_closure_atom_index) => {
-                        molecule.graph.add_edge(
+                        mol.graph.add_edge(
                             (*ring_closure_atom_index).into(),
                             source_atom_index.into(),
                             BondType::from_char(bond_char).unwrap(),
@@ -201,40 +201,39 @@ pub fn smiles(smi: &str) -> Result<Molecule, String> {
         return Err("SMILES string is empty".to_owned());
     }
 
-    let mut molecule = Molecule::default();
+    let mut mol = Molecule::default();
 
     let (atom_strs, bond_strs, ring_closure_strs) = parse_smiles(smi);
 
-    add_atoms_to_molecule(&mut molecule, &atom_strs);
-    match add_non_ring_closure_bonds_to_molecule(&mut molecule, &bond_strs) {
+    add_atoms_to_molecule(&mut mol, &atom_strs);
+    match add_non_ring_closure_bonds_to_molecule(&mut mol, &bond_strs) {
         Ok(_) => (),
         Err(_) => return Err(format!("error in smi {}", &smi)),
     };
-    match add_ring_closure_bonds_to_molecule(&mut molecule, &ring_closure_strs) {
+    match add_ring_closure_bonds_to_molecule(&mut mol, &ring_closure_strs) {
         Ok(_) => (),
         Err(_) => return Err(format!("error in smi {}", &smi)),
     };
 
-    molecule.perceive_rings();
-    molecule.perceive_default_bonds();
-    molecule = match molecule.kekulized() {
+    mol.perceive_rings();
+    mol.perceive_default_bonds();
+    mol = match mol.kekulized() {
         Ok(mol) => mol,
         Err(err) => {
             println!("{}", &err);
             return Err(format!("kekulization failed for smi {}", &smi));
         }
     };
-    match molecule.perceive_implicit_hydrogens() {
+    match mol.perceive_implicit_hydrogens() {
         Ok(_) => (),
         Err(_) => return Err(format!("valence problems in smi {}", &smi)),
     };
-    // molecule.perceive_radicals();
-    // molecule = match molecule.aromatized() {
+    // mol = match molecule.aromatized() {
     //     Ok(mol) => mol,
     //     Err(_) => return Err(format!("aromatizaton failed for smi {}", &smi)),
     // };
 
-    Ok(molecule)
+    Ok(mol)
 }
 
 pub fn smarts() {}

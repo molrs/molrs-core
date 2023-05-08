@@ -38,7 +38,7 @@ pub struct Atom {
     pub aromatic: bool,
     pub num_imp_h: u8,
     pub chirality: Chirality,
-    pub num_rad_electron: usize,
+    pub num_rad_electron: u8,
     pub ring_sizes: Vec<usize>,
     pub needs_update: bool,
 }
