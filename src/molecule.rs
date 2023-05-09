@@ -343,56 +343,20 @@ impl Molecule {
             }
         }
         let mut chains = deduplicate_nested_vec(&chains, "");
-        chains.sort_by_key(|chain| chain.len());
+        chains.sort_by_key(|chain| chain.len().wrapping_neg());
 
         chains
     }
 
     pub fn coordinates_2d(&self) -> Vec<Option<[f64; 2]>> {
-        let mut unique_rings = self.unique_rings();
+        let mut _unique_rings = self.unique_rings();
         let mut _unique_chains = self.unique_chains();
 
-        let mut coords: Vec<Option<[f64; 2]>> =
+        let mut _coords: Vec<Option<[f64; 2]>> =
             (0..self.graph.node_count()).map(|_| None).collect();
-        coords[0] = Some([0.0, 0.0]);
-        let n_neighbors = self.graph.neighbors(0.into()).count();
-        if n_neighbors == 1 {
-            coords[self.graph.neighbors(0.into()).next().unwrap().index()] = Some([0.0, 1.0]);
-        } else if n_neighbors == 2 {
-            let mut neighbors_iter = self.graph.neighbors(0.into());
-            coords[neighbors_iter.next().unwrap().index()] = Some([0.0, 1.0]);
-            coords[neighbors_iter.next().unwrap().index()] = Some([-0.866, -0.5]);
-        } else if n_neighbors == 3 {
-            unimplemented!();
-        } else {
-            unimplemented!();
-        }
-
-        for (i, coord) in coords.iter_mut().enumerate().skip(1) {
-            if coord.is_some() {
-                continue;
-            }
-
-            let mut rings_to_remove = vec![];
-            for (j, ring) in unique_rings.iter().enumerate() {
-                if ring.contains(&i) {
-                    rings_to_remove.push(j);
-                    unimplemented!();
-                }
-            }
-            for j in rings_to_remove.iter().rev() {
-                unique_rings.remove(*j);
-            }
-            if coord.is_some() {
-                continue;
-            }
-
-            let n_neighbors = self.graph.neighbors(i.into()).count();
-            if n_neighbors == 1 {}
-        }
 
         // coords.iter().map(|coord| coord.unwrap()).collect()
-        coords
+        _coords
     }
 }
 
@@ -429,7 +393,8 @@ mod tests {
     #[test]
     fn test_coordinates_2d() {
         // let smi = "CCC";
-        let smi = "C(C)C";
+        // let smi = "C(C)C";
+        let smi = "CCCCC(C)CC";
         // let smi = "c12ncccc1[nH]cc2";
         // let smi = "C1(CC2)CC2CCC1";
         let mol = crate::from::smiles(smi).unwrap();
