@@ -215,6 +215,68 @@ impl Molecule {
         unique_rings
     }
 
+    fn unique_chains(&self) -> Vec<Vec<usize>> {
+        if self.graph.node_count() == 1 {
+            return vec![];
+        }
+
+        let ring_atom_indices: HashSet<usize> =
+            HashSet::from_iter(self.rings.iter().flatten().copied());
+        let ring_atom_indices: HashSet<usize> = HashSet::from_iter(
+            ring_atom_indices
+                .iter()
+                .filter(|index| {
+                    self.graph
+                        .neighbors((**index).into())
+                        .any(|node_index| !ring_atom_indices.contains(&node_index.index()))
+                })
+                .copied(),
+        );
+        let terminal_atom_indices: HashSet<usize> = HashSet::from_iter(
+            (0..self.graph.node_count())
+                .filter(|index| self.graph.neighbors((*index).into()).count() == 1),
+        );
+        dbg!(&terminal_atom_indices);
+        dbg!(&ring_atom_indices);
+
+        let mut chains = vec![];
+        for atom_index in &terminal_atom_indices {
+            let neighbor_index = self
+                .graph
+                .neighbors((*atom_index).into())
+                .next()
+                .unwrap()
+                .index();
+            if terminal_atom_indices.contains(&neighbor_index)
+                || ring_atom_indices.contains(&neighbor_index)
+            {
+                chains.push(vec![*atom_index, neighbor_index]);
+                continue;
+            }
+            let paths = vec![vec![*atom_index, neighbor_index]];
+            // fn condition(path: &mut Vec<usize>) -> Result<Vec<usize>, ()> {
+            //     let last_atom_index = path.last().unwrap();
+            //     if terminal_atom_indices.contains(last_atom_index) {
+            //         return Ok(path.clone());
+            //     }
+            //     Err(())
+            // }
+            let condition = |path: &mut Vec<usize>| -> Result<Vec<usize>, ()> {
+                let last_atom_index = path.last().unwrap();
+                if terminal_atom_indices.contains(last_atom_index) {
+                    return Ok(path.clone());
+                }
+
+                Err(())
+            };
+            let paths = traverse_paths(&self.graph, &paths, condition);
+            for path in paths {
+                chains.push(path);
+            }
+        }
+        deduplicate_nested_vec(&chains)
+    }
+
     pub fn coordinates_2d(&self) -> Vec<Option<[f64; 2]>> {
         let mut unique_rings = self.unique_rings();
         let mut _unique_chains = self.unique_chains();
