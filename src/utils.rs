@@ -72,19 +72,25 @@ pub fn traverse_paths(
     paths_to_return
 }
 
-pub fn deduplicate_nested_vec(nested_vec: &[Vec<usize>]) -> Vec<Vec<usize>> {
+pub fn deduplicate_nested_vec(nested_vec: &[Vec<usize>], mode: &str) -> Vec<Vec<usize>> {
     let mut nested_vec = nested_vec.to_owned();
-    nested_vec.iter_mut().for_each(|vec| vec.sort());
+    let mut tmp_nested_vec = nested_vec.clone();
+    if mode == "sort" {
+        tmp_nested_vec.iter_mut().for_each(|vec| vec.sort());
+    } else if mode.is_empty() {
+    } else {
+        unimplemented!("not a valid deduplication mode");
+    }
     let mut drop_indices = vec![];
-    for i in (1..nested_vec.len()).rev() {
-        let ring = nested_vec.get(i).unwrap();
-        for other_ring in &nested_vec[0..i] {
+    for i in (1..tmp_nested_vec.len()).rev() {
+        let ring = tmp_nested_vec.get(i).unwrap();
+        for other_ring in &tmp_nested_vec[0..i] {
             if ring == other_ring {
                 drop_indices.push(i);
             }
         }
     }
-    for i in (0..nested_vec.len()).rev() {
+    for i in (0..tmp_nested_vec.len()).rev() {
         if drop_indices.contains(&i) {
             nested_vec.remove(i);
         }

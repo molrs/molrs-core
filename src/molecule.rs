@@ -35,9 +35,18 @@ impl Molecule {
 
             Err(())
         }
-        let mut paths = deduplicate_nested_vec(&traverse_paths(&self.graph, &paths, condition));
+        let mut paths =
+            deduplicate_nested_vec(&traverse_paths(&self.graph, &paths, condition), "sort");
         paths.sort_by_key(|path| path.len());
         self.rings = paths;
+
+        for (i, atom) in self.graph.node_weights_mut().enumerate() {
+            for ring in &self.rings {
+                if ring.contains(&i) {
+                    atom.ring_sizes.push(ring.len())
+                }
+            }
+        }
     }
 
     pub fn perceive_default_bonds(&mut self) {
@@ -236,8 +245,6 @@ impl Molecule {
             (0..self.graph.node_count())
                 .filter(|index| self.graph.neighbors((*index).into()).count() == 1),
         );
-        dbg!(&terminal_atom_indices);
-        dbg!(&ring_atom_indices);
 
         let mut chains = vec![];
         for atom_index in &terminal_atom_indices {
@@ -247,23 +254,20 @@ impl Molecule {
                 .next()
                 .unwrap()
                 .index();
+            // find chains of length 2 for t-t and t-r
             if terminal_atom_indices.contains(&neighbor_index)
                 || ring_atom_indices.contains(&neighbor_index)
             {
                 chains.push(vec![*atom_index, neighbor_index]);
                 continue;
             }
+            // find chains of length > 2 for t-t and r-r
             let paths = vec![vec![*atom_index, neighbor_index]];
-            // fn condition(path: &mut Vec<usize>) -> Result<Vec<usize>, ()> {
-            //     let last_atom_index = path.last().unwrap();
-            //     if terminal_atom_indices.contains(last_atom_index) {
-            //         return Ok(path.clone());
-            //     }
-            //     Err(())
-            // }
             let condition = |path: &mut Vec<usize>| -> Result<Vec<usize>, ()> {
                 let last_atom_index = path.last().unwrap();
-                if terminal_atom_indices.contains(last_atom_index) {
+                if terminal_atom_indices.contains(last_atom_index)
+                    || ring_atom_indices.contains(last_atom_index)
+                {
                     return Ok(path.clone());
                 }
 
@@ -274,7 +278,74 @@ impl Molecule {
                 chains.push(path);
             }
         }
-        deduplicate_nested_vec(&chains)
+        for atom_index in &ring_atom_indices {
+            let mut neighbor_indices: Vec<usize> = self
+                .graph
+                .neighbors((*atom_index).into())
+                .map(|neighbor| neighbor.index())
+                .collect();
+            let mut neighbor_indices_to_remove = vec![];
+            for (i, neighbor_index) in neighbor_indices.iter().enumerate() {
+                if terminal_atom_indices.contains(neighbor_index) {
+                    neighbor_indices_to_remove.push(i);
+                }
+            }
+            for i in neighbor_indices_to_remove.iter().rev() {
+                neighbor_indices.remove(*i);
+            }
+            neighbor_indices.retain(|index| {
+                self.graph
+                    .node_weight((*index).into())
+                    .unwrap()
+                    .ring_sizes
+                    .is_empty()
+            });
+            if neighbor_indices.is_empty() {
+                continue;
+            }
+            // find chains of length > 2 for r-r
+            let mut paths = vec![];
+            for neighbor_index in &neighbor_indices {
+                paths.push(vec![*atom_index, *neighbor_index]);
+            }
+            let condition = |path: &mut Vec<usize>| -> Result<Vec<usize>, ()> {
+                let last_atom_index = path.last().unwrap();
+                if terminal_atom_indices.contains(last_atom_index)
+                    || ring_atom_indices.contains(last_atom_index)
+                {
+                    return Ok(path.clone());
+                }
+
+                Err(())
+            };
+            let paths = traverse_paths(&self.graph, &paths, condition);
+            for path in paths {
+                chains.push(path);
+            }
+        }
+        // find chains of length 2 for r-r
+        for i in 1..self.rings.len() {
+            let j = i - 1;
+            for atom_index_i in self.rings[i].iter().copied() {
+                for atom_index_j in self.rings[j].iter().copied() {
+                    if self
+                        .graph
+                        .contains_edge(atom_index_i.into(), atom_index_j.into())
+                    {
+                        chains.push(vec![atom_index_i, atom_index_j]);
+                    }
+                }
+            }
+        }
+        for chain in chains.iter_mut() {
+            if chain.first().unwrap() > chain.last().unwrap() {
+                chain.reverse();
+            }
+        }
+        let mut chains = deduplicate_nested_vec(&chains, "");
+        chains.sort_by_key(|chain| chain.len());
+
+        chains
     }
 
     pub fn coordinates_2d(&self) -> Vec<Option<[f64; 2]>> {
@@ -329,17 +400,30 @@ impl Molecule {
 mod tests {
     #[test]
     fn test_unique_chains() {
-        // let smi = "C";
-        // let smi = "CCC";
-        // let smi = "C(C)C";
-        let smi = "CC(C)C";
-        // let smi = "CCCCC";
-        // let smi = "c12ncccc1[nH]cc2";
-        // let smi = "C1C(C)CCN1C";
-        // let smi = "C1(CC2)CC2CCC1";
-        let mol = crate::from::smiles(smi).unwrap();
-        // dbg!(&mol);
-        dbg!(mol.unique_chains());
+        let smiles = [
+            "CCC",
+            "CC(C)C",
+            "C1CC1-C2CC2",
+            "C1CC1-C-C2CC2",
+            "C1CC1(-C)-C2CC2",
+        ];
+        let unique_chains_vec = [
+            vec![vec![0, 1, 2]],
+            vec![vec![0, 1, 2], vec![0, 1, 3], vec![2, 1, 3]],
+            vec![vec![2, 3]],
+            vec![vec![2, 3, 4]],
+            vec![vec![2, 3], vec![2, 4]],
+        ];
+        for (smi, unique_chains) in smiles.iter().copied().zip(unique_chains_vec) {
+            let mol = crate::from::smiles(smi).unwrap();
+            let mol_unique_chains = mol.unique_chains();
+            for chain in &unique_chains {
+                assert!(mol_unique_chains.contains(chain));
+            }
+            for chain in &mol_unique_chains {
+                assert!(unique_chains.contains(chain))
+            }
+        }
     }
 
     #[test]
