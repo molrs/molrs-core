@@ -2,7 +2,11 @@ use std::collections::HashSet;
 
 use petgraph::{Graph, Undirected};
 
-use crate::{atom::Atom, bond::BondType, utils::get_duplicate_element};
+use crate::{
+    atom::Atom,
+    bond::BondType,
+    utils::{deduplicate_nested_vec, get_duplicate_element, traverse_paths},
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct Molecule {
@@ -20,76 +24,20 @@ impl Molecule {
         for neighbor in self.graph.neighbors(0.into()) {
             paths.push(vec![0, neighbor.index()]);
         }
-
-        while !paths.is_empty() {
-            let mut new_paths = vec![];
-            for path in paths.iter_mut() {
-                if path.is_empty() {
-                    continue;
-                }
-                let last_atom_index = path.last().unwrap();
-                let second_to_last_atom_index = path.iter().rev().nth(1).unwrap();
-                let neighbors: Vec<usize> = self
-                    .graph
-                    .neighbors((*last_atom_index).into())
-                    .map(|neighbor| neighbor.index())
-                    .filter(|neighbor_index| neighbor_index != second_to_last_atom_index)
-                    .collect();
-                let neighbors_len = neighbors.len();
-                if neighbors_len == 0 {
-                    *path = vec![];
-                } else if neighbors_len == 1 {
-                    path.push(neighbors[0]);
-                } else {
-                    for neighbor in &neighbors[1..] {
-                        let mut new_path = path.clone();
-                        new_path.push(*neighbor);
-                        new_paths.push(new_path);
+        fn condition(path: &mut Vec<usize>) -> Result<Vec<usize>, ()> {
+            if let Some(duplicate_element) = get_duplicate_element(path) {
+                for (i, index) in path.iter().enumerate() {
+                    if *index == duplicate_element {
+                        return Ok(path[(i + 1)..].to_owned());
                     }
-                    path.push(neighbors[0]);
                 }
-            }
-            for i in (0..paths.len()).rev() {
-                if paths[i].is_empty() {
-                    paths.remove(i);
-                }
-            }
-            for new_path in new_paths {
-                paths.push(new_path);
             }
 
-            for path in paths.iter_mut() {
-                if let Some(duplicate_element) = get_duplicate_element(path) {
-                    for (i, index) in path.iter().enumerate() {
-                        if *index == duplicate_element {
-                            self.rings.push(path[(i + 1)..].to_owned());
-                            break;
-                        }
-                    }
-                    *path = vec![];
-                }
-            }
+            Err(())
         }
-
-        let mut rings = self.rings.clone();
-        rings.iter_mut().for_each(|ring| ring.sort());
-        let mut drop_indices = vec![];
-        for i in (1..rings.len()).rev() {
-            let ring = rings.get(i).unwrap();
-            for other_ring in &rings[0..i] {
-                if ring == other_ring {
-                    drop_indices.push(i);
-                }
-            }
-        }
-
-        for i in (0..self.rings.len()).rev() {
-            if drop_indices.contains(&i) {
-                self.rings.remove(i);
-            }
-        }
-
-        self.rings.sort_by_key(|ring| ring.len());
+        let mut paths = deduplicate_nested_vec(&traverse_paths(&self.graph, &paths, condition));
+        paths.sort_by_key(|path| path.len());
+        self.rings = paths;
     }
 
     pub fn perceive_default_bonds(&mut self) {
@@ -269,6 +217,7 @@ impl Molecule {
 
     pub fn coordinates_2d(&self) -> Vec<Option<[f64; 2]>> {
         let mut unique_rings = self.unique_rings();
+        let mut _unique_chains = self.unique_chains();
 
         let mut coords: Vec<Option<[f64; 2]>> =
             (0..self.graph.node_count()).map(|_| None).collect();
@@ -316,6 +265,20 @@ impl Molecule {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn test_unique_chains() {
+        // let smi = "C";
+        // let smi = "CCC";
+        // let smi = "C(C)C";
+        let smi = "CC(C)C";
+        // let smi = "CCCCC";
+        // let smi = "c12ncccc1[nH]cc2";
+        // let smi = "C1C(C)CCN1C";
+        // let smi = "C1(CC2)CC2CCC1";
+        let mol = crate::from::smiles(smi).unwrap();
+        // dbg!(&mol);
+        dbg!(mol.unique_chains());
+    }
 
     #[test]
     fn test_coordinates_2d() {
