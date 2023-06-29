@@ -3,6 +3,7 @@ pub struct BondParseError {
     pub details: String,
 }
 
+/// Enum that represents the bond type.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum BondType {
     #[default]
@@ -20,6 +21,7 @@ pub enum BondType {
 impl TryFrom<char> for BondType {
     type Error = BondParseError;
 
+    /// Matches chars to BondTypes following the OpenSMILES syntax.
     fn try_from(bond_type: char) -> Result<Self, Self::Error> {
         match bond_type {
             ' ' => Ok(BondType::Default),
@@ -38,6 +40,7 @@ impl TryFrom<char> for BondType {
 }
 
 impl BondType {
+    /// Returns the bond order.
     pub fn to_float(&self) -> f64 {
         match self {
             BondType::Default => 1.0,

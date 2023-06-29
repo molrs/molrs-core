@@ -131,6 +131,7 @@ pub enum Element {
 impl FromStr for Element {
     type Err = ElementParseError;
 
+    /// Returns the atomic symbol.
     fn from_str(symbol: &str) -> Result<Self, Self::Err> {
         match symbol.to_lowercase().as_str() {
             "*" => Ok(Element::Star),

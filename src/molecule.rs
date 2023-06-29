@@ -23,15 +23,19 @@ pub struct Molecule {
 impl FromStr for Molecule {
     type Err = SmilesParseError;
 
+    /// Parses a SMILES to a Molecule.
+    ///
+    /// First SMILES are sliced into its component atom_strs, bond_strs, and
+    /// ring_closure_strs. Then atom_strs are parsed to atoms and bond_strs +
+    /// ring_closure_strs are parsed to bonds.
+    ///
+    /// The molecule is then processed by finding rings, converting Default bond
+    /// types to Single or Delocalized bond types, kekulizing Delocalized bonds,
+    /// and perceiving implicit hydrogens and radical electrons.
     fn from_str(smi: &str) -> Result<Self, Self::Err> {
         let smiles_parser: SmilesParser = smi.parse()?;
         let atoms = smiles_parser.atoms()?;
         let bonds = smiles_parser.bonds()?;
-        let is_bracket_atom: Vec<bool> = smiles_parser
-            .atom_strs
-            .iter()
-            .map(|atom_str| atom_str.starts_with('['))
-            .collect();
 
         let mut mol = Molecule {
             atoms,
@@ -48,6 +52,11 @@ impl FromStr for Molecule {
                 })
             }
         };
+        let is_bracket_atom: Vec<bool> = smiles_parser
+            .atom_strs
+            .iter()
+            .map(|atom_str| atom_str.starts_with('['))
+            .collect();
         match mol.perceive_implicit_hydrogens(is_bracket_atom) {
             Ok(_) => (),
             Err(_) => {
@@ -63,25 +72,29 @@ impl FromStr for Molecule {
 }
 
 impl ToString for Molecule {
+    /// Converts a Molecule to a SMILES.
     fn to_string(&self) -> String {
         "".to_owned()
     }
 }
 
 impl Molecule {
-    pub fn atom_bond_order(&self, index: usize) -> u8 {
+    /// Returns the explicit valence for an atom. Does not include implicit
+    /// hydrogens.
+    pub fn explicit_valence(&self, index: usize) -> u8 {
         self.bonds_to_atom(index)
             .iter()
             .map(|bond| bond.bond_type.to_float())
             .sum::<f64>() as u8
     }
 
-    pub fn neighbor_indices(&self, i: usize) -> Vec<usize> {
+    /// Returns the atom indices of the neighbors of an atom.
+    pub fn neighbor_indices(&self, index: usize) -> Vec<usize> {
         let mut neighbor_indices = vec![];
         for bond in &self.bonds {
-            if bond.atom_i == i {
+            if bond.atom_i == index {
                 neighbor_indices.push(bond.atom_j);
-            } else if bond.atom_j == i {
+            } else if bond.atom_j == index {
                 neighbor_indices.push(bond.atom_i);
             }
         }
@@ -90,6 +103,7 @@ impl Molecule {
         neighbor_indices
     }
 
+    /// Returns references to all bonds to an atom.
     pub fn bonds_to_atom(&self, index: usize) -> Vec<&Bond> {
         self.bonds
             .iter()
@@ -97,6 +111,7 @@ impl Molecule {
             .collect()
     }
 
+    /// Returns a reference to the bond between atom_i and atom_j.
     pub fn bond_between(&self, atom_i: usize, atom_j: usize) -> Option<&Bond> {
         self.bonds.iter().find(|&bond| {
             (bond.atom_i == atom_i && bond.atom_j == atom_j)
@@ -104,6 +119,7 @@ impl Molecule {
         })
     }
 
+    /// Returns a mutable reference to the bond between atom_i and atom_j.
     pub fn bond_between_mut(&mut self, atom_i: usize, atom_j: usize) -> Option<&mut Bond> {
         self.bonds.iter_mut().find(|bond| {
             (bond.atom_i == atom_i && bond.atom_j == atom_j)
@@ -111,6 +127,7 @@ impl Molecule {
         })
     }
 
+    /// Returns a kekulized clone of the Molecule.
     pub fn kekulized(&self) -> Result<Molecule, KekulizationError> {
         let mut mol = self.clone();
 
@@ -130,7 +147,7 @@ impl Molecule {
                     let index = *index;
                     let atom = mol.atoms.get(index).unwrap();
                     let maximum_valence = atom.element.maximum_valence(atom.charge, true);
-                    let bond_order = mol.atom_bond_order(index) + atom.num_implicit_hydrogens;
+                    let bond_order = mol.explicit_valence(index) + atom.num_implicit_hydrogens;
                     if !mol.atom_has_double_bond(index) && bond_order <= maximum_valence {
                         for path in contiguous_paths.iter_mut() {
                             if self.bond_between(index, *path.last().unwrap()).is_some() {
@@ -183,10 +200,12 @@ impl Molecule {
         Ok(mol)
     }
 
+    /// Returns a delocalized clone of the Molecule.
     pub fn delocalized(&self) -> Result<Molecule, DelocalizationError> {
         todo!();
     }
 
+    /// Traverses the Molecule to find all rings.
     fn perceive_rings(&mut self) {
         let mut paths = vec![];
         let mut closed_loops = vec![];
@@ -241,6 +260,7 @@ impl Molecule {
         self.rings = closed_loops;
     }
 
+    /// Converts Default bond types to Single or Delocalized bond types.
     fn perceive_default_bonds(&mut self) {
         for bond in self.bonds.iter_mut() {
             if bond.bond_type != BondType::Default {
@@ -256,12 +276,15 @@ impl Molecule {
         }
     }
 
+    /// Computes the number of implicit hydrogens when implicit hydrogens are
+    /// not specified or the number of radical electrons when implicit hydrogens
+    /// are specified.
     fn perceive_implicit_hydrogens(
         &mut self,
         is_bracket_atom: Vec<bool>,
     ) -> Result<(), BondOrderError> {
         let bond_orders: Vec<u8> = (0..self.atoms.len())
-            .map(|index| self.atom_bond_order(index))
+            .map(|index| self.explicit_valence(index))
             .collect();
         for (i, atom) in self.atoms.iter_mut().enumerate() {
             let maximum_valence = atom.element.maximum_valence(atom.charge, true);
@@ -283,6 +306,7 @@ impl Molecule {
         Ok(())
     }
 
+    /// Returns whether an atom participates in a double bond or not.
     fn atom_has_double_bond(&self, index: usize) -> bool {
         return self
             .bonds_to_atom(index)
@@ -290,6 +314,8 @@ impl Molecule {
             .any(|bond| bond.bond_type == BondType::Double);
     }
 
+    /// Returns whether an atom is delocalized or it participates in a double
+    /// bond.
     fn atom_is_conjugated(&self, index: usize) -> bool {
         return self.atoms.get(index).unwrap().delocalized || self.atom_has_double_bond(index);
     }

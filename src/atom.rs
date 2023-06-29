@@ -41,10 +41,10 @@ impl FromStr for PointChirality {
 /// Struct to represent atoms. The attributes represented are only those that
 /// intrinsic to the atom, ie. does not depend on the Molecule that it is part
 /// of.
-/// 
+///
 /// element: Element
 ///     An Element struct representing the atomic symbol. Element also provides
-///     a few utils such as n_val_electrons, maximum_valence, etc. 
+///     a few utils such as n_val_electrons, maximum_valence, etc.
 /// isotope: u16
 ///     The isotope as a u16 int. The default isotope = 0 corresponds to average
 ///     atomic mass.
