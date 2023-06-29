@@ -9,4 +9,13 @@ pub mod smiles;
 pub mod utils;
 
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let e = element::Element::Ac;
+        let e = String::from(&e);
+        dbg!(&e);
+    }
+}

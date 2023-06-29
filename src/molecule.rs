@@ -9,6 +9,8 @@ use crate::{
 
 pub struct KekulizationError;
 
+pub struct DelocalizationError;
+
 pub struct BondOrderError;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -28,7 +30,7 @@ impl FromStr for Molecule {
         let is_bracket_atom: Vec<bool> = smiles_parser
             .atom_strs
             .iter()
-            .map(|atom_str| atom_str.starts_with("["))
+            .map(|atom_str| atom_str.starts_with('['))
             .collect();
 
         let mut mol = Molecule {
@@ -57,6 +59,12 @@ impl FromStr for Molecule {
         // delocalize
 
         Ok(mol)
+    }
+}
+
+impl ToString for Molecule {
+    fn to_string(&self) -> String {
+        "".to_owned()
     }
 }
 
@@ -163,7 +171,7 @@ impl Molecule {
         }
 
         for bond in mol.bonds.iter_mut() {
-            if bond.bond_type == BondType::Aromatic {
+            if bond.bond_type == BondType::Delocalized {
                 bond.bond_type = BondType::Single;
             }
         }
@@ -173,6 +181,10 @@ impl Molecule {
         }
 
         Ok(mol)
+    }
+
+    pub fn delocalized(&self) -> Result<Molecule, DelocalizationError> {
+        todo!();
     }
 
     fn perceive_rings(&mut self) {
@@ -237,7 +249,7 @@ impl Molecule {
             if self.atoms.get(bond.atom_i).unwrap().delocalized
                 && self.atoms.get(bond.atom_j).unwrap().delocalized
             {
-                bond.bond_type = BondType::Aromatic;
+                bond.bond_type = BondType::Delocalized;
             } else {
                 bond.bond_type = BondType::Single;
             }

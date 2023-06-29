@@ -259,9 +259,10 @@ impl FromStr for Element {
     }
 }
 
-impl Element {
-    pub fn to_string(&self) -> &str {
-        match self {
+impl From<&Element> for String {
+    /// Returns the atomic symbol.
+    fn from(element: &Element) -> Self {
+        let symbol = match element {
             Element::Star => "*",
             Element::H => "H",
             Element::He => "He",
@@ -381,11 +382,16 @@ impl Element {
             Element::Md => "Md",
             Element::No => "No",
             Element::Lr => "Lr",
-        }
-    }
+        };
 
-    pub fn atomic_number(&self) -> u8 {
-        match self {
+        symbol.to_owned()
+    }
+}
+
+impl From<&Element> for u8 {
+    /// Returns the atomic number.
+    fn from(element: &Element) -> Self {
+        match element {
             Element::Star => 0,
             Element::H => 1,
             Element::He => 2,
@@ -507,7 +513,9 @@ impl Element {
             Element::Lr => 103,
         }
     }
+}
 
+impl Element {
     pub fn default_isotope(&self) -> usize {
         match self {
             Element::Star => 0,
@@ -760,7 +768,7 @@ impl Element {
         let n_val_electrons = self.n_val_electrons() as i8;
         let n_val_electrons_with_charge = n_val_electrons - charge;
 
-        let atomic_number = self.atomic_number();
+        let atomic_number = u8::from(self);
         if atomic_number <= 10 || !expanded_octet {
             4 - (4 - n_val_electrons_with_charge).unsigned_abs()
         } else if atomic_number <= 54 {

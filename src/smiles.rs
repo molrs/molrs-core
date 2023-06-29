@@ -13,7 +13,7 @@ enum RingClosure {
     Used,
 }
 
-/// Class to handle parsing of SMILES (and related formats) to atoms and bonds.
+/// Struct to handle parsing of SMILES (and related formats) to atoms and bonds.
 ///
 /// ```
 /// use molrs::{smiles::SmilesParser, atom::Atom, bond::Bond};

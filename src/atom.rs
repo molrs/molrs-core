@@ -38,6 +38,28 @@ impl FromStr for PointChirality {
     }
 }
 
+/// Struct to represent atoms. The attributes represented are only those that
+/// intrinsic to the atom, ie. does not depend on the Molecule that it is part
+/// of.
+/// 
+/// element: Element
+///     An Element struct representing the atomic symbol. Element also provides
+///     a few utils such as n_val_electrons, maximum_valence, etc. 
+/// isotope: u16
+///     The isotope as a u16 int. The default isotope = 0 corresponds to average
+///     atomic mass.
+/// charge: i8
+///     The charge as an i8 int.
+/// delocalized: bool
+///     The delocalization status as a bool. We avoid the term aromatic as that
+///     is a very loaded term. If bonds are explicitly Single/Double,
+///     delocalized should be false.
+/// num_implicit_hydrogens: u8
+///     The number of implicit hydrogens as a u8 int.
+/// num_radical_electrons: u8
+///     The number of radical electrons as a u8 int.
+/// point_chirality: PointChirality
+///     The point chirality of the atom.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Atom {
     pub element: Element,
@@ -52,6 +74,7 @@ pub struct Atom {
 impl FromStr for Atom {
     type Err = AtomParseError;
 
+    /// Parses a slice of a SMILES to a single Atom.
     fn from_str(atom_str: &str) -> Result<Self, Self::Err> {
         if atom_str.starts_with('[') {
             atom_from_str_bracket(atom_str)
