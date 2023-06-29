@@ -55,9 +55,9 @@ impl BondType {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Bond {
-    atom_i: usize,
-    atom_j: usize,
-    bond_type: BondType,
+    pub atom_i: usize,
+    pub atom_j: usize,
+    pub bond_type: BondType,
 }
 
 impl Bond {

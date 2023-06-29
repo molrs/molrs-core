@@ -6,6 +6,7 @@ pub mod bond;
 pub mod element;
 pub mod molecule;
 pub mod smiles;
+pub mod utils;
 
 #[cfg(test)]
 mod tests {}

@@ -43,7 +43,7 @@ pub struct Atom {
     pub element: Element,
     pub isotope: u16,
     pub charge: i8,
-    pub aromatic: bool,
+    pub delocalized: bool,
     pub num_implicit_hydrogens: u8,
     pub num_radical_electrons: u8,
     pub point_chirality: PointChirality,
@@ -96,7 +96,7 @@ fn atom_from_str_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
             let len_atomic_symbol = atomic_symbol.chars().count();
             if len_atomic_symbol == 0 {
                 atomic_symbol.push(c);
-                atom.aromatic = c.is_lowercase();
+                atom.delocalized = c.is_lowercase();
             } else if len_atomic_symbol == 1 && c != 'H' {
                 atomic_symbol.push(c);
             } else if c == 'H' {
@@ -138,7 +138,7 @@ fn atom_from_str_non_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
             });
         }
         if atomic_symbol.is_empty() {
-            atom.aromatic = c.is_lowercase();
+            atom.delocalized = c.is_lowercase();
         }
         atomic_symbol.push(c);
     }
