@@ -16,7 +16,7 @@ impl FromStr for Molecule {
     type Err = SmilesParseError;
 
     fn from_str(smi: &str) -> Result<Self, Self::Err> {
-        let smiles_parser = SmilesParser::from_str(smi)?;
+        let smiles_parser: SmilesParser = smi.parse()?;
         let atoms = smiles_parser.atoms()?;
         let bonds = smiles_parser.bonds()?;
 

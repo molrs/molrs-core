@@ -102,7 +102,7 @@ impl Atom {
             } else {
             }
         }
-        let atomic_symbol = match AtomicSymbol::from_str(&atomic_symbol) {
+        let atomic_symbol = match atomic_symbol.parse() {
             Ok(atomic_symbol) => atomic_symbol,
             Err(_) => return Err(format!("failed to parse atom {}", &atom_str)),
         };
@@ -124,7 +124,7 @@ impl Atom {
             }
             atomic_symbol.push(c);
         }
-        let atomic_symbol = match AtomicSymbol::from_str(&atomic_symbol) {
+        let atomic_symbol = match atomic_symbol.parse() {
             Ok(atomic_symbol) => atomic_symbol,
             Err(_) => return Err(format!("failed to parse atom {}", &atom_str)),
         };

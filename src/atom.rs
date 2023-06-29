@@ -13,6 +13,8 @@ impl From<ElementParseError> for AtomParseError {
     }
 }
 
+/// Enum that represents point chirality. Currently only implements tetrahedral
+/// chirality (clockwise and counter-clockwise).
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PointChirality {
     #[default]
@@ -121,7 +123,7 @@ fn atom_from_str_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
         } else {
         }
     }
-    atom.element = Element::from_str(&atomic_symbol)?;
+    atom.element = atomic_symbol.parse()?;
 
     Ok(atom)
 }
@@ -140,7 +142,7 @@ fn atom_from_str_non_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
         }
         atomic_symbol.push(c);
     }
-    atom.element = Element::from_str(&atomic_symbol)?;
+    atom.element = atomic_symbol.parse()?;
 
     Ok(atom)
 }

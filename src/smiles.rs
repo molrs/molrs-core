@@ -13,6 +13,15 @@ enum RingClosure {
     Used,
 }
 
+/// Class to handle parsing of SMILES (and related formats) to atoms and bonds.
+///
+/// ```
+/// use molrs::{smiles::SmilesParser, atom::Atom, bond::Bond};
+///
+/// let smiles_parser: SmilesParser = "C-C".parse().unwrap();
+/// let atoms: Vec<Atom> = smiles_parser.atoms().unwrap();
+/// let bonds: Vec<Bond> = smiles_parser.bonds().unwrap();
+/// ```
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SmilesParser {
     pub smi: String,
@@ -24,6 +33,29 @@ pub struct SmilesParser {
 impl FromStr for SmilesParser {
     type Err = SmilesParseError;
 
+    /// Parse a SMILES (and related formats) to atom_strs, bond_strs, and
+    /// ring_closure_strs.
+    /// 
+    /// An atom_str represents a single atom. "c" or "Cl" can be an atom_str.
+    /// [14C-H1] can also be an atom str. A bond_str represents a bond. An empty
+    /// bond_str indicates a default bond, "-" means single bond, "=" means
+    /// double bond, and so on. A ring_closure_str represents additional bonds
+    /// needed to form ring closures. These are typically represented as single-
+    /// digit numbers or %-prepended double-digit numbers that follow an atom.
+    /// 
+    /// ```
+    /// use molrs::{smiles::SmilesParser, atom::Atom, bond::Bond};
+    ///
+    /// let smiles_parser: SmilesParser = "C-C".parse().unwrap();
+    /// 
+    /// let atom_strs = ["C", "C"];
+    /// let atom_strs = atom_strs.into_iter().map(|s| s.to_owned()).collect::<Vec<String>>();
+    /// assert_eq!(smiles_parser.atom_strs, atom_strs);
+    /// 
+    /// let bond_strs = ["-"];
+    /// let bond_strs = bond_strs.into_iter().map(|s| s.to_owned()).collect::<Vec<String>>();
+    /// assert_eq!(smiles_parser.bond_strs, bond_strs)
+    /// ```
     fn from_str(smi: &str) -> Result<Self, Self::Err> {
         let mut atom_strs: Vec<String> = vec![];
         let mut bond_strs = vec![];
@@ -104,11 +136,23 @@ impl FromStr for SmilesParser {
 }
 
 impl SmilesParser {
+    /// Parses atom_strs: Vec<String> to atoms: Vec<Atom>.
+    /// 
+    /// ```
+    /// use molrs::{smiles::SmilesParser, atom::Atom, element::Element};
+    /// 
+    /// let smiles_parser: SmilesParser = "C".parse().unwrap();
+    /// 
+    /// let mut atom = Atom::default();
+    /// atom.element = Element::C;
+    /// let atoms = vec![atom];
+    /// assert_eq!(smiles_parser.atoms().unwrap(), atoms)
+    /// ```
     pub fn atoms(&self) -> Result<Vec<Atom>, SmilesParseError> {
         match self
             .atom_strs
             .iter()
-            .map(|s| Atom::from_str(s))
+            .map(|s| s.parse())
             .try_collect()
         {
             Ok(atoms) => Ok(atoms),
@@ -118,6 +162,28 @@ impl SmilesParser {
         }
     }
 
+    /// Parses bond_strs: Vec<String> and ring_closure_strs: Vec<String> to
+    /// bonds: Vec<Bond>.
+    /// 
+    /// Handles both bond_strs for linear/branched bonds and ring_closure_strs
+    /// for ring-forming bonds. The first phase uses a stack to keep track of
+    /// which atom index is the current root of the tree. The second phase uses
+    /// a hash map to map a ring index to the atom index that needs to be
+    /// connected.
+    /// 
+    /// ```
+    /// use molrs::{smiles::SmilesParser, bond::Bond};
+    /// 
+    /// let smiles_parser: SmilesParser = "C1CC1".parse().unwrap();
+    /// 
+    /// let bonds = vec![
+    ///     Bond::new(0, 1, ' '),
+    ///     Bond::new(1, 2, ' '),
+    ///     Bond::new(0, 2, ' '),
+    /// ];
+    /// let bonds: Vec<Bond> = bonds.into_iter().map(|res| res.unwrap()).collect();
+    /// assert_eq!(smiles_parser.bonds().unwrap(), bonds);
+    /// ```
     pub fn bonds(&self) -> Result<Vec<Bond>, SmilesParseError> {
         let mut bonds = vec![];
 
