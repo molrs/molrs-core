@@ -1,6 +1,8 @@
-use std::str::FromStr;
+use std::{cmp::Ordering, str::FromStr};
 
 use crate::element::{Element, ElementParseError};
+
+#[derive(Debug)]
 pub struct AtomParseError {
     pub details: String,
 }
@@ -35,6 +37,17 @@ impl FromStr for PointChirality {
                 details: format!("invalid point chirality {}", point_chirality),
             }),
         }
+    }
+}
+
+impl From<&PointChirality> for String {
+    fn from(point_chirality: &PointChirality) -> Self {
+        match point_chirality {
+            PointChirality::Undefined => "",
+            PointChirality::CounterClockwise => "@",
+            PointChirality::Clockwise => "@@",
+        }
+        .to_owned()
     }
 }
 
@@ -81,6 +94,55 @@ impl FromStr for Atom {
         } else {
             atom_from_str_non_bracket(atom_str)
         }
+    }
+}
+
+impl From<&Atom> for String {
+    /// Converts an Atom to a string in SMILES syntax.
+    fn from(atom: &Atom) -> Self {
+        let mut atom_str = String::new();
+        if atom.isotope == 0
+            && atom.charge == 0
+            && atom.num_radical_electrons == 0
+            && atom.point_chirality == PointChirality::Undefined
+        {
+            atom_str = match atom.element {
+                Element::Star => String::from(&atom.element),
+                Element::B => String::from(&atom.element),
+                Element::C => String::from(&atom.element),
+                Element::N => String::from(&atom.element),
+                Element::O => String::from(&atom.element),
+                Element::S => String::from(&atom.element),
+                Element::P => String::from(&atom.element),
+                Element::F => String::from(&atom.element),
+                Element::Cl => String::from(&atom.element),
+                Element::Br => String::from(&atom.element),
+                Element::I => String::from(&atom.element),
+                _ => format!("[{}]", String::from(&atom.element)),
+            }
+        } else {
+            atom_str.push('[');
+            if atom.isotope != 0 {
+                atom_str += &atom.isotope.to_string();
+            }
+            atom_str += &String::from(&atom.element);
+            if atom.point_chirality != PointChirality::Undefined {
+                atom_str += &String::from(&atom.point_chirality);
+            }
+            atom_str += &match atom.num_implicit_hydrogens {
+                0 => "".to_owned(),
+                1 => "H".to_owned(),
+                _ => format!("H{}", atom.num_implicit_hydrogens),
+            };
+            atom_str += &match atom.charge.cmp(&0) {
+                Ordering::Greater => format!("+{}", atom.charge),
+                Ordering::Less => format!("-{}", atom.charge),
+                Ordering::Equal => "".to_owned(),
+            };
+            atom_str.push(']');
+        }
+
+        atom_str
     }
 }
 
@@ -168,4 +230,18 @@ fn atom_from_str_non_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
     atom.element = atomic_symbol.parse()?;
 
     Ok(atom)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_string_from_atom() {
+        let atom_strs = ["C", "O", "[H]", "[18O]", "[C@H]", "[CH2+2]"];
+        for atom_str in atom_strs {
+            let atom = Atom::from_str(atom_str).unwrap();
+            assert_eq!(String::from(&atom), atom_str);
+        }
+    }
 }

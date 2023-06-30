@@ -71,9 +71,8 @@ impl FromStr for Molecule {
     }
 }
 
-impl ToString for Molecule {
-    /// Converts a Molecule to a SMILES.
-    fn to_string(&self) -> String {
+impl From<&Molecule> for String {
+    fn from(mol: &Molecule) -> Self {
         "".to_owned()
     }
 }

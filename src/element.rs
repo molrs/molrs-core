@@ -263,7 +263,7 @@ impl FromStr for Element {
 impl From<&Element> for String {
     /// Returns the atomic symbol.
     fn from(element: &Element) -> Self {
-        let symbol = match element {
+        match element {
             Element::Star => "*",
             Element::H => "H",
             Element::He => "He",
@@ -383,9 +383,8 @@ impl From<&Element> for String {
             Element::Md => "Md",
             Element::No => "No",
             Element::Lr => "Lr",
-        };
-
-        symbol.to_owned()
+        }
+        .to_owned()
     }
 }
 
