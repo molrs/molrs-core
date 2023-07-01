@@ -229,16 +229,18 @@ impl SmilesParser {
         let mut ring_closures = HashMap::new();
         for (i, ring_closure_str) in self.ring_closure_strs.iter().enumerate() {
             let source_atom_index = i;
-            let mut ring_index = None;
+            let mut ring_indices = vec![];
             let mut bond_char = ' ';
             let mut distance_from_percent = 2;
             for c in ring_closure_str.chars() {
                 if distance_from_percent == 0 {
                     distance_from_percent += 1;
-                    ring_index = Some(c.to_digit(10).unwrap());
+                    ring_indices.push(c.to_digit(10).unwrap());
                 } else if distance_from_percent == 1 {
                     distance_from_percent += 1;
-                    ring_index = Some(ring_index.unwrap() * 10 + c.to_digit(10).unwrap());
+                    let ring_index = ring_indices.last_mut().unwrap();
+                    *ring_index *= 10;
+                    *ring_index += c.to_digit(10).unwrap();
                 } else if c == '-'
                     || c == '/'
                     || c == '\\'
@@ -251,43 +253,47 @@ impl SmilesParser {
                 } else if c == '%' {
                     distance_from_percent = 0;
                 } else if c.is_numeric() {
-                    ring_index = Some(c.to_digit(10).unwrap());
+                    ring_indices.push(c.to_digit(10).unwrap());
                 } else {
                     return Err(SmilesParseError {
                         details: format!("{} | invalid char {}", self.smi, c),
                     });
                 }
             }
-            if ring_index.is_none() {
+            if ring_indices.is_empty() {
                 continue;
             }
-            let ring_index = ring_index.unwrap();
-            if let Some(ring_closure) = ring_closures.get(&ring_index) {
-                match ring_closure {
-                    RingClosure::OneAtom(target_atom_index) => {
-                        bonds.push(
-                            match Bond::new(*target_atom_index, source_atom_index, bond_char) {
-                                Ok(bond) => bond,
-                                Err(bond_parse_error) => {
-                                    return Err(SmilesParseError {
-                                        details: format!(
-                                            "{} | {}",
-                                            self.smi, bond_parse_error.details
-                                        ),
-                                    })
-                                }
-                            },
-                        );
-                        ring_closures.insert(ring_index, RingClosure::Used);
+            for ring_index in ring_indices {
+                if let Some(ring_closure) = ring_closures.get(&ring_index) {
+                    match ring_closure {
+                        RingClosure::OneAtom(target_atom_index) => {
+                            bonds.push(
+                                match Bond::new(*target_atom_index, source_atom_index, bond_char) {
+                                    Ok(bond) => bond,
+                                    Err(bond_parse_error) => {
+                                        return Err(SmilesParseError {
+                                            details: format!(
+                                                "{} | {}",
+                                                self.smi, bond_parse_error.details
+                                            ),
+                                        })
+                                    }
+                                },
+                            );
+                            ring_closures.insert(ring_index, RingClosure::Used);
+                        }
+                        RingClosure::Used => {
+                            return Err(SmilesParseError {
+                                details: format!(
+                                    "{} | repeated ring index {}",
+                                    self.smi, ring_index
+                                ),
+                            });
+                        }
                     }
-                    RingClosure::Used => {
-                        return Err(SmilesParseError {
-                            details: format!("{} | repeated ring index {}", self.smi, ring_index),
-                        });
-                    }
+                } else {
+                    ring_closures.insert(ring_index, RingClosure::OneAtom(source_atom_index));
                 }
-            } else {
-                ring_closures.insert(ring_index, RingClosure::OneAtom(source_atom_index));
             }
         }
 

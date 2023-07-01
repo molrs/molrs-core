@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{cmp::Ordering, collections::HashSet, str::FromStr};
 
 use crate::{
     atom::Atom,
@@ -35,7 +35,8 @@ impl FromStr for Molecule {
     fn from_str(smi: &str) -> Result<Self, Self::Err> {
         let smiles_parser: SmilesParser = smi.parse()?;
         let atoms = smiles_parser.atoms()?;
-        let bonds = smiles_parser.bonds()?;
+        let mut bonds = smiles_parser.bonds()?;
+        bonds.sort();
 
         let mut mol = Molecule {
             atoms,
@@ -71,9 +72,142 @@ impl FromStr for Molecule {
     }
 }
 
-impl From<&Molecule> for String {
-    fn from(mol: &Molecule) -> Self {
-        "".to_owned()
+pub fn ring_contains_bond(ring: &[usize], bond: &Bond) -> bool {
+    if ring.windows(2).any(|pair| {
+        (bond.atom_i == pair[0] && bond.atom_j == pair[1])
+            || (bond.atom_i == pair[1] && bond.atom_j == pair[0])
+    }) {
+        true
+    } else {
+        (bond.atom_i == *ring.first().unwrap() && bond.atom_i == *ring.last().unwrap())
+            || (bond.atom_i == *ring.last().unwrap() && bond.atom_j == *ring.first().unwrap())
+    }
+}
+
+impl ToString for Molecule {
+    fn to_string(&self) -> String {
+        let mut bonds = self.bonds.clone();
+        let mut rings = self.rings.clone();
+        let mut bonds_to_pop = HashSet::new();
+        for (i, bond) in bonds.iter().rev().enumerate() {
+            if bond.atom_j - bond.atom_i == 1 {
+                continue;
+            }
+            let mut rings_to_remove = vec![];
+            for (j, ring) in rings.iter().enumerate() {
+                if ring_contains_bond(ring, bond) {
+                    rings_to_remove.push(j);
+                    bonds_to_pop.insert(bonds.len() - (i + 1));
+                }
+            }
+            for index in rings_to_remove.iter().rev() {
+                rings.remove(*index);
+            }
+        }
+        let mut bonds_to_pop: Vec<usize> = bonds_to_pop.into_iter().collect();
+        bonds_to_pop.sort_by_key(|index| -(*index as isize));
+        let mut ring_closure_bonds = vec![];
+        for index in bonds_to_pop {
+            ring_closure_bonds.push(bonds.remove(index));
+        }
+
+        let mut smi = self.atoms.first().unwrap().to_string();
+        let mut index_of_atom_str = vec![0, smi.len()];
+        for atom in self.atoms.iter().skip(1) {
+            let atom_str = atom.to_string();
+            smi += &atom_str;
+            index_of_atom_str.push(index_of_atom_str.last().unwrap() + atom_str.len());
+        }
+        index_of_atom_str.pop();
+
+        for (i, bond) in ring_closure_bonds.iter().enumerate() {
+            let i = i + 1;
+            let mut str_to_insert = match i.cmp(&10) {
+                Ordering::Greater => format!("%{}", i),
+                Ordering::Less => format!("{}", i),
+                Ordering::Equal => format!("%{}", i),
+            };
+            smi.insert_str(
+                *index_of_atom_str.get(bond.atom_i + 1).unwrap(),
+                &str_to_insert,
+            );
+            for index in index_of_atom_str[(bond.atom_i + 1)..].iter_mut() {
+                *index += str_to_insert.len();
+            }
+
+            if !(bond.bond_type == BondType::Default
+                || bond.bond_type == BondType::Single
+                || bond.bond_type == BondType::Delocalized)
+            {
+                str_to_insert = String::from(bond.bond_type.to_char()) + &str_to_insert;
+            }
+            if smi.len() - *index_of_atom_str.get(bond.atom_j).unwrap() == 1 {
+                smi += &str_to_insert;
+            } else {
+                smi.insert_str(
+                    *index_of_atom_str.get(bond.atom_j).unwrap() + 1,
+                    &str_to_insert,
+                );
+                for index in index_of_atom_str[(bond.atom_j + 1)..].iter_mut() {
+                    *index += str_to_insert.len();
+                }
+            }
+        }
+
+        for bond in &bonds {
+            if bond.atom_j - bond.atom_i > 1 {
+                let cursor = *index_of_atom_str.get(bond.atom_i).unwrap() + 1;
+                let mut start_index = None;
+                let mut in_parenthesis = false;
+                for (i, c) in smi.chars().skip(cursor).enumerate() {
+                    if c == '(' {
+                        in_parenthesis = true;
+                    }
+                    if c == ')' {
+                        in_parenthesis = false;
+                    }
+                    if in_parenthesis {
+                        continue;
+                    }
+                    if let Some(index) = index_of_atom_str
+                        .iter()
+                        .position(|index| *index == cursor + i)
+                    {
+                        start_index = Some(index);
+                        break;
+                    }
+                }
+
+                let start_index = start_index.unwrap();
+
+                smi.insert(*index_of_atom_str.get(start_index).unwrap(), '(');
+                for index in index_of_atom_str[start_index..].iter_mut() {
+                    *index += 1;
+                }
+
+                smi.insert(*index_of_atom_str.get(bond.atom_j).unwrap(), ')');
+                for index in index_of_atom_str[bond.atom_j..].iter_mut() {
+                    *index += 1;
+                }
+            }
+        }
+
+        for bond in &bonds {
+            if !(bond.bond_type == BondType::Default
+                || bond.bond_type == BondType::Single
+                || bond.bond_type == BondType::Delocalized)
+            {
+                smi.insert(
+                    *index_of_atom_str.get(bond.atom_j).unwrap(),
+                    bond.bond_type.to_char(),
+                );
+                for index in index_of_atom_str[bond.atom_j..].iter_mut() {
+                    *index += 1;
+                }
+            }
+        }
+
+        smi
     }
 }
 
@@ -255,6 +389,7 @@ impl Molecule {
             }
         }
         closed_loops = deduplicate_closed_loops(closed_loops);
+        closed_loops.sort_by_key(|closed_loop| -(closed_loop.len() as isize));
 
         self.rings = closed_loops;
     }
@@ -325,11 +460,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_string_from_molecule() {
+        let smiles = [
+            "CC",
+            "CCCCCC",
+            "C[18O-]",
+            "C[CH]C",
+            "C=C",
+            "CC(C)C",
+            "C(C(C)C)C",
+            "C(=O)C",
+            "CS(=O)(=O)C",
+            "C1CC1",
+            "C12=CC=CC=C2NC=C1",
+            "C2=CC=C1C=CC=CC1=C2",
+        ];
+        for smi in smiles {
+            let mol: Molecule = smi.parse().unwrap();
+            assert_eq!(mol.to_string(), smi);
+        }
+    }
+
+    #[test]
     fn test_molecule_from_str() {
+        let smi = "C1CC1";
         // let smi = "CC2CC2C";
+        // let smi = "C12=CC=CC=C1NC=C2";
         // let smi = "C1=CC=C2C=CC=CC2=C1";
-        let smi = "c1ccc1";
+        // let smi = "c1ccc1";
         // let smi = "Cc1cc(C)c1";
+        // let smi = "CC(C)(C)C";
         let mol: Molecule = smi.parse().unwrap();
 
         dbg!(&mol);

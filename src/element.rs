@@ -260,10 +260,9 @@ impl FromStr for Element {
     }
 }
 
-impl From<&Element> for String {
-    /// Returns the atomic symbol.
-    fn from(element: &Element) -> Self {
-        match element {
+impl ToString for Element {
+    fn to_string(&self) -> String {
+        match self {
             Element::Star => "*",
             Element::H => "H",
             Element::He => "He",

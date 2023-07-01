@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, str::FromStr};
+use std::str::FromStr;
 
 use crate::element::{Element, ElementParseError};
 
@@ -40,9 +40,9 @@ impl FromStr for PointChirality {
     }
 }
 
-impl From<&PointChirality> for String {
-    fn from(point_chirality: &PointChirality) -> Self {
-        match point_chirality {
+impl ToString for PointChirality {
+    fn to_string(&self) -> String {
+        match self {
             PointChirality::Undefined => "",
             PointChirality::CounterClockwise => "@",
             PointChirality::Clockwise => "@@",
@@ -97,48 +97,56 @@ impl FromStr for Atom {
     }
 }
 
-impl From<&Atom> for String {
-    /// Converts an Atom to a string in SMILES syntax.
-    fn from(atom: &Atom) -> Self {
+impl ToString for Atom {
+    fn to_string(&self) -> String {
         let mut atom_str = String::new();
-        if atom.isotope == 0
-            && atom.charge == 0
-            && atom.num_radical_electrons == 0
-            && atom.point_chirality == PointChirality::Undefined
+        if self.isotope == 0
+            && self.charge == 0
+            && self.num_radical_electrons == 0
+            && self.point_chirality == PointChirality::Undefined
         {
-            atom_str = match atom.element {
-                Element::Star => String::from(&atom.element),
-                Element::B => String::from(&atom.element),
-                Element::C => String::from(&atom.element),
-                Element::N => String::from(&atom.element),
-                Element::O => String::from(&atom.element),
-                Element::S => String::from(&atom.element),
-                Element::P => String::from(&atom.element),
-                Element::F => String::from(&atom.element),
-                Element::Cl => String::from(&atom.element),
-                Element::Br => String::from(&atom.element),
-                Element::I => String::from(&atom.element),
-                _ => format!("[{}]", String::from(&atom.element)),
+            atom_str = match self.element {
+                Element::Star => self.element.to_string(),
+                Element::B => self.element.to_string(),
+                Element::C => self.element.to_string(),
+                Element::N => self.element.to_string(),
+                Element::O => self.element.to_string(),
+                Element::S => self.element.to_string(),
+                Element::P => self.element.to_string(),
+                Element::F => self.element.to_string(),
+                Element::Cl => self.element.to_string(),
+                Element::Br => self.element.to_string(),
+                Element::I => self.element.to_string(),
+                _ => format!("[{}]", self.element.to_string()),
             }
         } else {
             atom_str.push('[');
-            if atom.isotope != 0 {
-                atom_str += &atom.isotope.to_string();
+            if self.isotope != 0 {
+                atom_str += &self.isotope.to_string();
             }
-            atom_str += &String::from(&atom.element);
-            if atom.point_chirality != PointChirality::Undefined {
-                atom_str += &String::from(&atom.point_chirality);
+            atom_str += &self.element.to_string();
+            if self.point_chirality != PointChirality::Undefined {
+                atom_str += &self.point_chirality.to_string();
             }
-            atom_str += &match atom.num_implicit_hydrogens {
+            atom_str += &match self.num_implicit_hydrogens {
                 0 => "".to_owned(),
                 1 => "H".to_owned(),
-                _ => format!("H{}", atom.num_implicit_hydrogens),
+                _ => format!("H{}", self.num_implicit_hydrogens),
             };
-            atom_str += &match atom.charge.cmp(&0) {
-                Ordering::Greater => format!("+{}", atom.charge),
-                Ordering::Less => format!("-{}", atom.charge),
-                Ordering::Equal => "".to_owned(),
-            };
+            if self.charge == 1 {
+                atom_str += "+";
+            } else if self.charge == -1 {
+                atom_str += "-";
+            } else if self.charge > 0 {
+                atom_str += &format!("+{}", self.charge);
+            } else if self.charge < 0 {
+                atom_str += &self.charge.to_string();
+            }
+            // atom_str += &match atom.charge.cmp(&0) {
+            //     Ordering::Greater => format!("+{}", atom.charge),
+            //     Ordering::Less => format!("{}", atom.charge),
+            //     Ordering::Equal => "".to_owned(),
+            // };
             atom_str.push(']');
         }
 
@@ -241,7 +249,7 @@ mod test {
         let atom_strs = ["C", "O", "[H]", "[18O]", "[C@H]", "[CH2+2]"];
         for atom_str in atom_strs {
             let atom = Atom::from_str(atom_str).unwrap();
-            assert_eq!(String::from(&atom), atom_str);
+            assert_eq!(atom.to_string(), atom_str);
         }
     }
 }
