@@ -105,19 +105,28 @@ impl ToString for Atom {
             && self.num_radical_electrons == 0
             && self.point_chirality == PointChirality::Undefined
         {
+            let atomic_symbol = match self.delocalized {
+                true => self.element.to_string().to_lowercase(),
+                false => self.element.to_string(),
+            };
+
             atom_str = match self.element {
-                Element::Star => self.element.to_string(),
-                Element::B => self.element.to_string(),
-                Element::C => self.element.to_string(),
-                Element::N => self.element.to_string(),
-                Element::O => self.element.to_string(),
-                Element::S => self.element.to_string(),
-                Element::P => self.element.to_string(),
-                Element::F => self.element.to_string(),
-                Element::Cl => self.element.to_string(),
-                Element::Br => self.element.to_string(),
-                Element::I => self.element.to_string(),
-                _ => format!("[{}]", self.element.to_string()),
+                Element::Star => atomic_symbol,
+                Element::B => atomic_symbol,
+                Element::C => atomic_symbol,
+                Element::N => atomic_symbol,
+                Element::O => atomic_symbol,
+                Element::S => atomic_symbol,
+                Element::P => atomic_symbol,
+                Element::F => atomic_symbol,
+                Element::Cl => atomic_symbol,
+                Element::Br => atomic_symbol,
+                Element::I => atomic_symbol,
+                _ => format!("[{}]", atomic_symbol),
+            };
+
+            if self.element == Element::N && self.num_implicit_hydrogens == 1 {
+                atom_str = format!("[{}H]", atom_str);
             }
         } else {
             atom_str.push('[');

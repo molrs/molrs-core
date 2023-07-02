@@ -9,8 +9,6 @@ use crate::{
 
 pub struct KekulizationError;
 
-pub struct DelocalizationError;
-
 pub struct BondOrderError;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -66,21 +64,10 @@ impl FromStr for Molecule {
                 })
             }
         }
-        // delocalize
+        mol = mol.delocalized();
+        // perceive stereochemistry
 
         Ok(mol)
-    }
-}
-
-pub fn ring_contains_bond(ring: &[usize], bond: &Bond) -> bool {
-    if ring.windows(2).any(|pair| {
-        (bond.atom_i == pair[0] && bond.atom_j == pair[1])
-            || (bond.atom_i == pair[1] && bond.atom_j == pair[0])
-    }) {
-        true
-    } else {
-        (bond.atom_i == *ring.first().unwrap() && bond.atom_i == *ring.last().unwrap())
-            || (bond.atom_i == *ring.last().unwrap() && bond.atom_j == *ring.first().unwrap())
     }
 }
 
@@ -244,7 +231,10 @@ impl Molecule {
 
         let mut conjugated_rings = vec![];
         for ring in &self.rings {
-            if ring.iter().all(|index| self.atom_is_conjugated(*index)) {
+            if ring
+                .iter()
+                .all(|index| self.atom_needs_kekulization(*index))
+            {
                 conjugated_rings.push(ring.clone());
             }
         }
@@ -312,8 +302,30 @@ impl Molecule {
     }
 
     /// Returns a delocalized clone of the Molecule.
-    pub fn delocalized(&self) -> Result<Molecule, DelocalizationError> {
-        todo!();
+    pub fn delocalized(&self) -> Molecule {
+        let mut mol = self.clone();
+
+        for ring in self.rings.iter().rev() {
+            if ring
+                .iter()
+                .all(|index| self.atom_needs_delocalization(*index))
+            {
+                dbg!(&ring);
+                for index in ring {
+                    mol.atoms[*index].delocalized = true;
+                }
+                mol.bond_between_mut(*ring.first().unwrap(), *ring.last().unwrap())
+                    .unwrap()
+                    .bond_type = BondType::Delocalized;
+                for window in ring.windows(2) {
+                    mol.bond_between_mut(window[0], window[1])
+                        .unwrap()
+                        .bond_type = BondType::Delocalized;
+                }
+            }
+        }
+
+        mol
     }
 
     /// Traverses the Molecule to find all rings.
@@ -428,8 +440,15 @@ impl Molecule {
 
     /// Returns whether an atom is delocalized or it participates in a double
     /// bond.
-    fn atom_is_conjugated(&self, index: usize) -> bool {
-        return self.atoms.get(index).unwrap().delocalized || self.atom_has_double_bond(index);
+    fn atom_needs_kekulization(&self, index: usize) -> bool {
+        let atom = self.atoms.get(index).unwrap();
+        atom.delocalized || self.atom_has_double_bond(index)
+    }
+
+    fn atom_needs_delocalization(&self, index: usize) -> bool {
+        let atom = self.atoms.get(index).unwrap();
+        self.atom_has_double_bond(index)
+            || (self.explicit_valence(index) + atom.num_implicit_hydrogens) as i8 + atom.charge < 4
     }
 }
 
@@ -451,11 +470,11 @@ mod tests {
             "C(C(C)C)C",
             "C1CC1",
             "C1CCCC1",
-            "C12=CC=CC=C1NC=C2",
-            "C2=CC=C1C=CC=CC1=C2",
-            "C13NN=CC=1[C@H]2C[C@H]2C3",
-            "NC(CN1C3=C(C(C(F)(F)F)=N1)[C@H]2C[C@H]2C3(F)F)=O",
-            "CC(C)(C#CC1=NC(=C(C=C1)C2=C3C(=C(C=C2)Cl)C(=NN3CC(F)(F)F)NS(=O)(=O)C)[C@H](CC4=CC(=CC(=C4)F)F)NC(=O)CN7C6=C([C@H]5C[C@H]5C6(F)F)C(=N7)C(F)(F)F)S(=O)(=O)C",
+            "c12ccccc1[nH]cc2",
+            "c2ccc1ccccc1c2",
+            "c13[nH]ncc1[C@H]2C[C@H]2C3",
+            "NC(Cn1c3c(c(C(F)(F)F)n1)[C@H]2C[C@H]2C3(F)F)=O",
+            "CC(C)(C#Cc1nc(c(cc1)c2c3c(c(cc2)Cl)c(nn3CC(F)(F)F)[NH]S(=O)(=O)C)[C@H](Cc4cc(cc(c4)F)F)[NH]C(=O)Cn7c6c([C@H]5C[C@H]5C6(F)F)c(n7)C(F)(F)F)S(=O)(=O)C",
         ];
         for smi in smiles {
             let mol: Molecule = smi.parse().unwrap();
@@ -465,11 +484,12 @@ mod tests {
 
     #[test]
     fn test_molecule_from_str() {
-        let smi = "C1CC1";
+        // let smi = "C1CC1";
         // let smi = "CC2CC2C";
         // let smi = "C12=CC=CC=C1NC=C2";
         // let smi = "C1=CC=C2C=CC=CC2=C1";
         // let smi = "c1ccc1";
+        let smi = "C1=CC=C1";
         // let smi = "Cc1cc(C)c1";
         // let smi = "CC(C)(C)C";
         let mol: Molecule = smi.parse().unwrap();
