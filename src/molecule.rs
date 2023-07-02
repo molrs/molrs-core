@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, collections::HashSet, str::FromStr};
+use std::{cmp::Ordering, str::FromStr};
 
 use crate::{
     atom::Atom,
@@ -86,90 +86,68 @@ pub fn ring_contains_bond(ring: &[usize], bond: &Bond) -> bool {
 
 impl ToString for Molecule {
     fn to_string(&self) -> String {
-        let mut bonds = self.bonds.clone();
-        let mut rings = self.rings.clone();
-        let mut bonds_to_pop = HashSet::new();
-        for (i, bond) in bonds.iter().rev().enumerate() {
-            if bond.atom_j - bond.atom_i == 1 {
-                continue;
-            }
-            let mut rings_to_remove = vec![];
-            for (j, ring) in rings.iter().enumerate() {
-                if ring_contains_bond(ring, bond) {
-                    rings_to_remove.push(j);
-                    bonds_to_pop.insert(bonds.len() - (i + 1));
-                }
-            }
-            for index in rings_to_remove.iter().rev() {
-                rings.remove(*index);
-            }
-        }
-        let mut bonds_to_pop: Vec<usize> = bonds_to_pop.into_iter().collect();
-        bonds_to_pop.sort_by_key(|index| -(*index as isize));
-        let mut ring_closure_bonds = vec![];
-        for index in bonds_to_pop {
-            ring_closure_bonds.push(bonds.remove(index));
-        }
-
         let mut smi = self.atoms.first().unwrap().to_string();
-        let mut index_of_atom_str = vec![0, smi.len()];
-        for atom in self.atoms.iter().skip(1) {
-            let atom_str = atom.to_string();
-            smi += &atom_str;
-            index_of_atom_str.push(index_of_atom_str.last().unwrap() + atom_str.len());
-        }
-        index_of_atom_str.pop();
+        let mut atom_str_indicies = vec![0];
+        let mut ring_closure_count = 1;
+        let mut ring_closure_bonds = vec![];
 
-        for (i, bond) in ring_closure_bonds.iter().enumerate() {
-            let i = i + 1;
-            let mut str_to_insert = match i.cmp(&10) {
-                Ordering::Greater => format!("%{}", i),
-                Ordering::Less => format!("{}", i),
-                Ordering::Equal => format!("%{}", i),
-            };
-            smi.insert_str(
-                *index_of_atom_str.get(bond.atom_i + 1).unwrap(),
-                &str_to_insert,
-            );
-            for index in index_of_atom_str[(bond.atom_i + 1)..].iter_mut() {
-                *index += str_to_insert.len();
-            }
+        for i in 1..self.atoms.len() {
+            let mut atom_str = self.atoms.get(i).unwrap().to_string();
 
-            if !(bond.bond_type == BondType::Default
-                || bond.bond_type == BondType::Single
-                || bond.bond_type == BondType::Delocalized)
-            {
-                str_to_insert = String::from(bond.bond_type.to_char()) + &str_to_insert;
-            }
-            if smi.len() - *index_of_atom_str.get(bond.atom_j).unwrap() == 1 {
-                smi += &str_to_insert;
-            } else {
-                smi.insert_str(
-                    *index_of_atom_str.get(bond.atom_j).unwrap() + 1,
-                    &str_to_insert,
-                );
-                for index in index_of_atom_str[(bond.atom_j + 1)..].iter_mut() {
-                    *index += str_to_insert.len();
+            let mut neighbors = self.neighbor_indices(i);
+            neighbors.retain(|neighbor| *neighbor < i);
+            neighbors.sort();
+            if neighbors.len() > 1 {
+                for j in 0..neighbors.len() - 1 {
+                    let neighbor = neighbors[j];
+
+                    let ring_closure_bond = self.bond_between(neighbor, i).unwrap();
+                    ring_closure_bonds.push(ring_closure_bond);
+                    let mut cursor = *atom_str_indicies.get(ring_closure_bond.atom_i + 1).unwrap();
+                    while ['(', ')'].contains(&smi.chars().nth(cursor).unwrap()) {
+                        cursor -= 1;
+                    }
+                    let mut ring_closure_str = match ring_closure_count.cmp(&10) {
+                        Ordering::Greater => format!("%{}", ring_closure_count),
+                        Ordering::Less => format!("{}", ring_closure_count),
+                        Ordering::Equal => format!("%{}", ring_closure_count),
+                    };
+                    ring_closure_count += 1;
+                    smi.insert_str(cursor, &ring_closure_str);
+                    if !(ring_closure_bond.bond_type == BondType::Single
+                        || ring_closure_bond.bond_type == BondType::Delocalized
+                        || ring_closure_bond.bond_type == BondType::Default)
+                    {
+                        ring_closure_str =
+                            String::from(ring_closure_bond.bond_type.to_char()) + &ring_closure_str;
+                    }
+                    atom_str += &ring_closure_str;
+                    for index in atom_str_indicies[neighbor + 1..].iter_mut() {
+                        *index += 1;
+                    }
+
+                    neighbors.remove(j);
                 }
             }
-        }
 
-        for bond in &bonds {
-            if bond.atom_j - bond.atom_i > 1 {
-                let cursor = *index_of_atom_str.get(bond.atom_i).unwrap() + 1;
+            if neighbors.contains(&(i - 1)) {
+                atom_str_indicies.push(smi.len());
+                smi += &atom_str;
+            } else {
+                let cursor = atom_str_indicies.get(neighbors[0]).unwrap() + 1;
                 let mut start_index = None;
-                let mut in_parenthesis = false;
+                let mut parenthesis_depth = 0;
                 for (i, c) in smi.chars().skip(cursor).enumerate() {
                     if c == '(' {
-                        in_parenthesis = true;
+                        parenthesis_depth += 1;
                     }
                     if c == ')' {
-                        in_parenthesis = false;
+                        parenthesis_depth -= 1;
                     }
-                    if in_parenthesis {
+                    if parenthesis_depth > 0 {
                         continue;
                     }
-                    if let Some(index) = index_of_atom_str
+                    if let Some(index) = atom_str_indicies
                         .iter()
                         .position(|index| *index == cursor + i)
                     {
@@ -180,28 +158,28 @@ impl ToString for Molecule {
 
                 let start_index = start_index.unwrap();
 
-                smi.insert(*index_of_atom_str.get(start_index).unwrap(), '(');
-                for index in index_of_atom_str[start_index..].iter_mut() {
+                smi.insert(*atom_str_indicies.get(start_index).unwrap(), '(');
+                for index in atom_str_indicies[start_index..].iter_mut() {
                     *index += 1;
                 }
 
-                smi.insert(*index_of_atom_str.get(bond.atom_j).unwrap(), ')');
-                for index in index_of_atom_str[bond.atom_j..].iter_mut() {
-                    *index += 1;
-                }
+                smi.push(')');
+                atom_str_indicies.push(smi.len());
+                smi += &atom_str;
             }
         }
 
-        for bond in &bonds {
+        for bond in &self.bonds {
             if !(bond.bond_type == BondType::Default
                 || bond.bond_type == BondType::Single
-                || bond.bond_type == BondType::Delocalized)
+                || bond.bond_type == BondType::Delocalized
+                || ring_closure_bonds.contains(&bond))
             {
                 smi.insert(
-                    *index_of_atom_str.get(bond.atom_j).unwrap(),
+                    *atom_str_indicies.get(bond.atom_j).unwrap(),
                     bond.bond_type.to_char(),
                 );
-                for index in index_of_atom_str[bond.atom_j..].iter_mut() {
+                for index in atom_str_indicies[bond.atom_j..].iter_mut() {
                     *index += 1;
                 }
             }
@@ -468,12 +446,16 @@ mod tests {
             "C[CH]C",
             "C=C",
             "CC(C)C",
-            "C(C(C)C)C",
             "C(=O)C",
             "CS(=O)(=O)C",
+            "C(C(C)C)C",
             "C1CC1",
-            "C12=CC=CC=C2NC=C1",
+            "C1CCCC1",
+            "C12=CC=CC=C1NC=C2",
             "C2=CC=C1C=CC=CC1=C2",
+            "C13NN=CC=1[C@H]2C[C@H]2C3",
+            "NC(CN1C3=C(C(C(F)(F)F)=N1)[C@H]2C[C@H]2C3(F)F)=O",
+            "CC(C)(C#CC1=NC(=C(C=C1)C2=C3C(=C(C=C2)Cl)C(=NN3CC(F)(F)F)NS(=O)(=O)C)[C@H](CC4=CC(=CC(=C4)F)F)NC(=O)CN7C6=C([C@H]5C[C@H]5C6(F)F)C(=N7)C(F)(F)F)S(=O)(=O)C",
         ];
         for smi in smiles {
             let mol: Molecule = smi.parse().unwrap();
