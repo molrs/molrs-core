@@ -310,7 +310,6 @@ impl Molecule {
                 .iter()
                 .all(|index| self.atom_needs_delocalization(*index))
             {
-                dbg!(&ring);
                 for index in ring {
                     mol.atoms[*index].delocalized = true;
                 }
@@ -448,7 +447,9 @@ impl Molecule {
     fn atom_needs_delocalization(&self, index: usize) -> bool {
         let atom = self.atoms.get(index).unwrap();
         self.atom_has_double_bond(index)
-            || (self.explicit_valence(index) + atom.num_implicit_hydrogens) as i8 + atom.charge < 4
+            || (self.bonds_to_atom(index).len() as u8 + atom.num_implicit_hydrogens) as i8
+                + atom.charge
+                < 4
     }
 }
 
