@@ -204,7 +204,6 @@ fn atom_from_str_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
             } else if c == 'H' {
                 atom.num_implicit_hydrogens = 1;
                 next_value = NextValueInBracket::NumImpH;
-            } else {
             }
         } else if c == '@' {
             atom.point_chirality = match atom.point_chirality {
@@ -222,7 +221,6 @@ fn atom_from_str_bracket(atom_str: &str) -> Result<Atom, AtomParseError> {
         } else if c == '-' {
             atom.charge = -1;
             next_value = NextValueInBracket::Charge(false);
-        } else {
         }
     }
     atom.element = atomic_symbol.parse()?;
