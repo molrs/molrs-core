@@ -65,7 +65,7 @@ impl FromStr for Molecule {
             }
         }
         mol = mol.delocalized();
-        // perceive stereochemistry
+        mol.perceive_stereo();
 
         Ok(mol)
     }
@@ -427,6 +427,10 @@ impl Molecule {
         }
 
         Ok(())
+    }
+
+    fn perceive_stereo(&mut self) {
+        
     }
 
     /// Returns whether an atom participates in a double bond or not.

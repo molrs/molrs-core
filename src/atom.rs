@@ -21,6 +21,7 @@ impl From<ElementParseError> for AtomParseError {
 pub enum PointChirality {
     #[default]
     Undefined,
+    Achiral,
     Clockwise,
     CounterClockwise,
 }
@@ -44,6 +45,7 @@ impl ToString for PointChirality {
     fn to_string(&self) -> String {
         match self {
             PointChirality::Undefined => "",
+            PointChirality::Achiral => "",
             PointChirality::CounterClockwise => "@",
             PointChirality::Clockwise => "@@",
         }
