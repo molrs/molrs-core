@@ -1,5 +1,3 @@
-rust-toolchain
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -137,3 +135,4 @@ Cargo.lock
 *.dot
 *.ipynb
 *.svg
+rust-toolchain
