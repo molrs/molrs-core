@@ -1,88 +1,59 @@
 #![feature(test)]
 
-pub mod mol;
-pub mod sub;
-pub mod read;
+pub mod atom;
+pub mod bond;
+pub mod extended_atom;
+pub mod from;
+pub mod molecule;
 pub mod periodic_table;
+pub mod reaction;
+pub mod read;
+pub mod standardize;
+pub mod substructure;
+pub mod to;
+pub mod utils;
+pub mod write;
 
-use mol::Mol;
-use sub::Sub;
+pub fn visualize() {}
 
 #[cfg(test)]
 mod tests {
-    extern crate test;
-
-    use std::fs::File;
-    use std::io::{self, BufRead};
-    use std::path::Path;
-    use std::time::{Duration, Instant};
-    use test::{Bencher, black_box};
     use super::*;
 
-
-    // fn smi_to_atoms_and_bonds_no_return(smi: &str) {
-    //     let (atoms, bonds, ring_closures) = read::smiles::smi_to_atoms_and_bonds_and_ring_closures(&smi).unwrap();
-    // }
-
-    // fn mol_from_smiles_no_return(smi: &str) {
-    //     let mol = Mol::from_smiles(&smi).unwrap();
-    // }
-
-    // #[test]
-    // fn check_smi() {
-    //     // let smi = "N[Cu](N)(N)[OH-]";
-    //     // let smi = "N~[Cu](~N)(~[OH-])~[OH-]";
-    //     // let smi = "CS(=NC)(=O)C";
-    //     // let smi = "o1cccc1";
-    //     let smi = "CC(C)(C)(C)C";
-    //     let mol = Mol::from_smiles(&smi);
-    //     dbg!(&mol);
-    // }
-
-    // #[bench]
-    // fn benchmark(b: &mut Bencher) {
-    //     // let smi = "OCC[OH]";
-    //     let smi = "CC(C)(C#CC1=NC(=C(C=C1)C2=C3C(=C(C=C2)Cl)C(=NN3CC(F)(F)F)NS(=O)(=O)C)C(CC4=CC(=CC(=C4)F)F)NC(=O)CN5C6=C(C7CC7C6(F)F)C(=N5)C(F)(F)F)S(=O)(=O)C";
-    //     b.iter(|| {
-    //         black_box(mol_from_smiles_no_return(&smi));
-    //         // black_box(smi_to_atoms_and_bonds_no_return(&smi));
-    //     });
-    // }
-
-    // fn read_lines<P>(filename: P) -> io::Result<io::Lines<io::BufReader<File>>>
-    // where P: AsRef<Path>, {
-    //     let file = File::open(filename)?;
-    //     Ok(io::BufReader::new(file).lines())
-    // }
-
-    // base: 2.17 s
-    // perceive rings: 9.55 s
-    // perceive rings + kekulize: 10.48 s
-    // #[test]
-    // fn read_chembl_mols() {
-    //     let mut smiles = vec![];
-    //     if let Ok(lines) = read_lines("/Users/ozone/Downloads/chembl.smi") {
-    //         for line in lines {
-    //             if let Ok(ip) = line {
-    //                 let smi = ip.split(" ").nth(0).unwrap();
-    //                 smiles.push(smi.to_owned());
-    //             }
-    //         }
-    //     }
-        
-    //     let start = Instant::now();
-
-    //     for smi in smiles {
-    //         match Mol::from_smiles(&smi) {
-    //             Ok(_) => (),
-    //             Err(problem) => println!("{}", &problem),
-    //             // Err(_) => println!("{}", &smi),
-    //         }
-    //         // let result = Mol::from_smiles(&smi);
-    //         // let result = read::smiles::smi_to_atoms_and_bonds_and_ring_closures(&smi);
-    //     }
-
-    //     let duration = start.elapsed();
-    //     println!("Time elapsed is: {:?}", duration);
-    // }
+    #[test]
+    fn test_from_smiles() {
+        // let smi = "C";
+        // let smi = "CN";
+        // let smi = "C-C";
+        // let smi = "C=C";
+        // let smi = "CCNCCOCC";
+        // let smi = "CC(C)CC";
+        // let smi = "C(C(C)C)C";
+        // let smi = "C(C)(C(C)C)C";
+        // let smi = "C(F)(F)(F)F";
+        // let smi = "CS=O";
+        // let smi = "CCl";
+        // let smi = "ClC";
+        let smi = "[CH3-]";
+        // let smi = "C[CH2-]C";
+        // let smi = "CCC";
+        // let smi = "C1CC1";
+        // let smi = "c1occc1C";
+        // let smi = "c1(=O)cc[nH]cc1";
+        // let smi = "c1ccccc1";
+        // let smi = "c1=ccccc1";
+        // let smi = "c1c=cccc1";
+        // let smi = "c12ncccc1[nH]cc2";
+        // let smi = "c3(cco4)c4CCC3";
+        // let smi = "c1%02ncccc1[nH]cc%02";
+        // let smi = "C1OC=CC=1";
+        // let smi = "C1C[CH2]1";
+        // let smi = "C%01CC%01";
+        // let smi = "C1CC=1";
+        // let smi = "C1CC=1-C";
+        // let smi = "C%01CC=%01";
+        let mol = from::smiles(smi).unwrap();
+        dbg!(&mol);
+        // write::dot_png_file(&mol, "graph.png");
+    }
 }

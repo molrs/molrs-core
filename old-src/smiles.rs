@@ -282,14 +282,15 @@ impl SmilesParser {
                             );
                             ring_closures.insert(ring_index, RingClosure::Used);
                         }
-                        RingClosure::Used => {
-                            return Err(SmilesParseError {
-                                details: format!(
-                                    "{} | repeated ring index {}",
-                                    self.smi, ring_index
-                                ),
-                            });
-                        }
+                        RingClosure::Used => { ring_closures.insert(ring_index, RingClosure::OneAtom(source_atom_index)); },
+                        // RingClosure::Used => {
+                        //     return Err(SmilesParseError {
+                        //         details: format!(
+                        //             "{} | repeated ring index {}",
+                        //             self.smi, ring_index
+                        //         ),
+                        //     });
+                        // }
                     }
                 } else {
                     ring_closures.insert(ring_index, RingClosure::OneAtom(source_atom_index));

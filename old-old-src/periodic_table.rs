@@ -1,149 +1,385 @@
-use std::default;
+use std::str::FromStr;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub enum AtomicSymbol {
-    H ,                                                                 He,
-    Li, Be,                                         B , C , N , O , F , Ne,
-    Na, Mg,                                         Al, Si, P , S , Cl, Ar,
-    K , Ca, Sc, Ti, V , Cr, Mn, Fe, Co, Ni, Cu, Zn, Ga, Ge, As, Se, Br, Kr,
-    Rb, Sr, Y , Zr, Nb, Mo, Tc, Ru, Rh, Pd, Ag, Cd, In, Sn, Sb, Te, I , Xe,
-    Cs, Ba,     Hf, Ta, W , Re, Os, Ir, Pt, Au, Hg, Tl, Pb, Bi, Po, At, Rn,
-    Fr, Ra,     Rf, Db, Sg, Bh, Hs, Mt, Ds, Rg, Cn, Nh, Fl, Mc, Lv, Ts, Og,
+    #[default]
+    Star,
+    H,
+    He,
+    Li,
+    Be,
+    B,
+    C,
+    N,
+    O,
+    F,
+    Ne,
+    Na,
+    Mg,
+    Al,
+    Si,
+    P,
+    S,
+    Cl,
+    Ar,
+    K,
+    Ca,
+    Sc,
+    Ti,
+    V,
+    Cr,
+    Mn,
+    Fe,
+    Co,
+    Ni,
+    Cu,
+    Zn,
+    Ga,
+    Ge,
+    As,
+    Se,
+    Br,
+    Kr,
+    Rb,
+    Sr,
+    Y,
+    Zr,
+    Nb,
+    Mo,
+    Tc,
+    Ru,
+    Rh,
+    Pd,
+    Ag,
+    Cd,
+    In,
+    Sn,
+    Sb,
+    Te,
+    I,
+    Xe,
+    Cs,
+    Ba,
+    Hf,
+    Ta,
+    W,
+    Re,
+    Os,
+    Ir,
+    Pt,
+    Au,
+    Hg,
+    Tl,
+    Pb,
+    Bi,
+    Po,
+    At,
+    Rn,
+    Fr,
+    Ra,
+    Rf,
+    Db,
+    Sg,
+    Bh,
+    Hs,
+    Mt,
+    Ds,
+    Rg,
+    Cn,
+    Nh,
+    Fl,
+    Mc,
+    Lv,
+    Ts,
+    Og,
 
-            La, Ce, Pr, Nd, Pm, Sm, Eu, Gd, Tb, Dy, Ho, Er, Tm, Yb, Lu,
-            Ac, Th, Pa, U , Np, Pu, Am, Cm, Bk, Cf, Es, Fm, Md, No, Lr,
+    La,
+    Ce,
+    Pr,
+    Nd,
+    Pm,
+    Sm,
+    Eu,
+    Gd,
+    Tb,
+    Dy,
+    Ho,
+    Er,
+    Tm,
+    Yb,
+    Lu,
+    Ac,
+    Th,
+    Pa,
+    U,
+    Np,
+    Pu,
+    Am,
+    Cm,
+    Bk,
+    Cf,
+    Es,
+    Fm,
+    Md,
+    No,
+    Lr,
 }
 
-impl Default for AtomicSymbol {
-    fn default() -> AtomicSymbol { AtomicSymbol::H }
+pub struct AtomicSymbolParseError;
+
+impl FromStr for AtomicSymbol {
+    type Err = AtomicSymbolParseError;
+
+    fn from_str(symbol: &str) -> Result<Self, Self::Err> {
+        let symbol = symbol.to_lowercase();
+        if symbol == "*" {
+            Ok(AtomicSymbol::Star)
+        } else if symbol == "h" {
+            Ok(AtomicSymbol::H)
+        } else if symbol == "he" {
+            Ok(AtomicSymbol::He)
+        } else if symbol == "li" {
+            Ok(AtomicSymbol::Li)
+        } else if symbol == "be" {
+            Ok(AtomicSymbol::Be)
+        } else if symbol == "b" {
+            Ok(AtomicSymbol::B)
+        } else if symbol == "c" {
+            Ok(AtomicSymbol::C)
+        } else if symbol == "n" {
+            Ok(AtomicSymbol::N)
+        } else if symbol == "o" {
+            Ok(AtomicSymbol::O)
+        } else if symbol == "f" {
+            Ok(AtomicSymbol::F)
+        } else if symbol == "ne" {
+            Ok(AtomicSymbol::Ne)
+        } else if symbol == "na" {
+            Ok(AtomicSymbol::Na)
+        } else if symbol == "mg" {
+            Ok(AtomicSymbol::Mg)
+        } else if symbol == "al" {
+            Ok(AtomicSymbol::Al)
+        } else if symbol == "si" {
+            Ok(AtomicSymbol::Si)
+        } else if symbol == "p" {
+            Ok(AtomicSymbol::P)
+        } else if symbol == "s" {
+            Ok(AtomicSymbol::S)
+        } else if symbol == "cl" {
+            Ok(AtomicSymbol::Cl)
+        } else if symbol == "ar" {
+            Ok(AtomicSymbol::Ar)
+        } else if symbol == "k" {
+            Ok(AtomicSymbol::K)
+        } else if symbol == "ca" {
+            Ok(AtomicSymbol::Ca)
+        } else if symbol == "sc" {
+            Ok(AtomicSymbol::Sc)
+        } else if symbol == "ti" {
+            Ok(AtomicSymbol::Ti)
+        } else if symbol == "v" {
+            Ok(AtomicSymbol::V)
+        } else if symbol == "cr" {
+            Ok(AtomicSymbol::Cr)
+        } else if symbol == "mn" {
+            Ok(AtomicSymbol::Mn)
+        } else if symbol == "fe" {
+            Ok(AtomicSymbol::Fe)
+        } else if symbol == "co" {
+            Ok(AtomicSymbol::Co)
+        } else if symbol == "ni" {
+            Ok(AtomicSymbol::Ni)
+        } else if symbol == "cu" {
+            Ok(AtomicSymbol::Cu)
+        } else if symbol == "zn" {
+            Ok(AtomicSymbol::Zn)
+        } else if symbol == "ga" {
+            Ok(AtomicSymbol::Ga)
+        } else if symbol == "ge" {
+            Ok(AtomicSymbol::Ge)
+        } else if symbol == "as" {
+            Ok(AtomicSymbol::As)
+        } else if symbol == "se" {
+            Ok(AtomicSymbol::Se)
+        } else if symbol == "br" {
+            Ok(AtomicSymbol::Br)
+        } else if symbol == "kr" {
+            Ok(AtomicSymbol::Kr)
+        } else if symbol == "rb" {
+            Ok(AtomicSymbol::Rb)
+        } else if symbol == "sr" {
+            Ok(AtomicSymbol::Sr)
+        } else if symbol == "y" {
+            Ok(AtomicSymbol::Y)
+        } else if symbol == "zr" {
+            Ok(AtomicSymbol::Zr)
+        } else if symbol == "nb" {
+            Ok(AtomicSymbol::Nb)
+        } else if symbol == "mo" {
+            Ok(AtomicSymbol::Mo)
+        } else if symbol == "tc" {
+            Ok(AtomicSymbol::Tc)
+        } else if symbol == "ru" {
+            Ok(AtomicSymbol::Ru)
+        } else if symbol == "rh" {
+            Ok(AtomicSymbol::Rh)
+        } else if symbol == "pd" {
+            Ok(AtomicSymbol::Pd)
+        } else if symbol == "ag" {
+            Ok(AtomicSymbol::Ag)
+        } else if symbol == "cd" {
+            Ok(AtomicSymbol::Cd)
+        } else if symbol == "in" {
+            Ok(AtomicSymbol::In)
+        } else if symbol == "sn" {
+            Ok(AtomicSymbol::Sn)
+        } else if symbol == "sb" {
+            Ok(AtomicSymbol::Sb)
+        } else if symbol == "te" {
+            Ok(AtomicSymbol::Te)
+        } else if symbol == "i" {
+            Ok(AtomicSymbol::I)
+        } else if symbol == "xe" {
+            Ok(AtomicSymbol::Xe)
+        } else if symbol == "cs" {
+            Ok(AtomicSymbol::Cs)
+        } else if symbol == "ba" {
+            Ok(AtomicSymbol::Ba)
+        } else if symbol == "hf" {
+            Ok(AtomicSymbol::Hf)
+        } else if symbol == "ta" {
+            Ok(AtomicSymbol::Ta)
+        } else if symbol == "w" {
+            Ok(AtomicSymbol::W)
+        } else if symbol == "re" {
+            Ok(AtomicSymbol::Re)
+        } else if symbol == "os" {
+            Ok(AtomicSymbol::Os)
+        } else if symbol == "ir" {
+            Ok(AtomicSymbol::Ir)
+        } else if symbol == "pt" {
+            Ok(AtomicSymbol::Pt)
+        } else if symbol == "au" {
+            Ok(AtomicSymbol::Au)
+        } else if symbol == "hg" {
+            Ok(AtomicSymbol::Hg)
+        } else if symbol == "tl" {
+            Ok(AtomicSymbol::Tl)
+        } else if symbol == "pb" {
+            Ok(AtomicSymbol::Pb)
+        } else if symbol == "bi" {
+            Ok(AtomicSymbol::Bi)
+        } else if symbol == "po" {
+            Ok(AtomicSymbol::Po)
+        } else if symbol == "at" {
+            Ok(AtomicSymbol::At)
+        } else if symbol == "rn" {
+            Ok(AtomicSymbol::Rn)
+        } else if symbol == "fr" {
+            Ok(AtomicSymbol::Fr)
+        } else if symbol == "ra" {
+            Ok(AtomicSymbol::Ra)
+        } else if symbol == "rf" {
+            Ok(AtomicSymbol::Rf)
+        } else if symbol == "db" {
+            Ok(AtomicSymbol::Db)
+        } else if symbol == "sg" {
+            Ok(AtomicSymbol::Sg)
+        } else if symbol == "bh" {
+            Ok(AtomicSymbol::Bh)
+        } else if symbol == "hs" {
+            Ok(AtomicSymbol::Hs)
+        } else if symbol == "mt" {
+            Ok(AtomicSymbol::Mt)
+        } else if symbol == "ds" {
+            Ok(AtomicSymbol::Ds)
+        } else if symbol == "rg" {
+            Ok(AtomicSymbol::Rg)
+        } else if symbol == "cn" {
+            Ok(AtomicSymbol::Cn)
+        } else if symbol == "nh" {
+            Ok(AtomicSymbol::Nh)
+        } else if symbol == "fl" {
+            Ok(AtomicSymbol::Fl)
+        } else if symbol == "mc" {
+            Ok(AtomicSymbol::Mc)
+        } else if symbol == "lv" {
+            Ok(AtomicSymbol::Lv)
+        } else if symbol == "ts" {
+            Ok(AtomicSymbol::Ts)
+        } else if symbol == "og" {
+            Ok(AtomicSymbol::Og)
+        } else if symbol == "la" {
+            Ok(AtomicSymbol::La)
+        } else if symbol == "ce" {
+            Ok(AtomicSymbol::Ce)
+        } else if symbol == "pr" {
+            Ok(AtomicSymbol::Pr)
+        } else if symbol == "nd" {
+            Ok(AtomicSymbol::Nd)
+        } else if symbol == "pm" {
+            Ok(AtomicSymbol::Pm)
+        } else if symbol == "sm" {
+            Ok(AtomicSymbol::Sm)
+        } else if symbol == "eu" {
+            Ok(AtomicSymbol::Eu)
+        } else if symbol == "gd" {
+            Ok(AtomicSymbol::Gd)
+        } else if symbol == "tb" {
+            Ok(AtomicSymbol::Tb)
+        } else if symbol == "dy" {
+            Ok(AtomicSymbol::Dy)
+        } else if symbol == "ho" {
+            Ok(AtomicSymbol::Ho)
+        } else if symbol == "er" {
+            Ok(AtomicSymbol::Er)
+        } else if symbol == "tm" {
+            Ok(AtomicSymbol::Tm)
+        } else if symbol == "yb" {
+            Ok(AtomicSymbol::Yb)
+        } else if symbol == "lu" {
+            Ok(AtomicSymbol::Lu)
+        } else if symbol == "ac" {
+            Ok(AtomicSymbol::Ac)
+        } else if symbol == "th" {
+            Ok(AtomicSymbol::Th)
+        } else if symbol == "pa" {
+            Ok(AtomicSymbol::Pa)
+        } else if symbol == "u" {
+            Ok(AtomicSymbol::U)
+        } else if symbol == "np" {
+            Ok(AtomicSymbol::Np)
+        } else if symbol == "pu" {
+            Ok(AtomicSymbol::Pu)
+        } else if symbol == "am" {
+            Ok(AtomicSymbol::Am)
+        } else if symbol == "cm" {
+            Ok(AtomicSymbol::Cm)
+        } else if symbol == "bk" {
+            Ok(AtomicSymbol::Bk)
+        } else if symbol == "cf" {
+            Ok(AtomicSymbol::Cf)
+        } else if symbol == "es" {
+            Ok(AtomicSymbol::Es)
+        } else if symbol == "fm" {
+            Ok(AtomicSymbol::Fm)
+        } else if symbol == "md" {
+            Ok(AtomicSymbol::Md)
+        } else if symbol == "no" {
+            Ok(AtomicSymbol::No)
+        } else if symbol == "lr" {
+            Ok(AtomicSymbol::Lr)
+        } else {
+            Err(AtomicSymbolParseError)
+        }
+    }
 }
 
 impl AtomicSymbol {
-    pub fn new(symbol: &str) -> Result<AtomicSymbol, String> {
-        let symbol = symbol.to_lowercase();
-        if symbol == "h" { Ok(AtomicSymbol::H) }
-        else if symbol == "he" { Ok(AtomicSymbol::He) }
-        else if symbol == "li" { Ok(AtomicSymbol::Li) }
-        else if symbol == "be" { Ok(AtomicSymbol::Be) }
-        else if symbol == "b" { Ok(AtomicSymbol::B) }
-        else if symbol == "c" { Ok(AtomicSymbol::C) }
-        else if symbol == "n" { Ok(AtomicSymbol::N) }
-        else if symbol == "o" { Ok(AtomicSymbol::O) }
-        else if symbol == "f" { Ok(AtomicSymbol::F) }
-        else if symbol == "ne" { Ok(AtomicSymbol::Ne) }
-        else if symbol == "na" { Ok(AtomicSymbol::Na) }
-        else if symbol == "mg" { Ok(AtomicSymbol::Mg) }
-        else if symbol == "al" { Ok(AtomicSymbol::Al) }
-        else if symbol == "si" { Ok(AtomicSymbol::Si) }
-        else if symbol == "p" { Ok(AtomicSymbol::P) }
-        else if symbol == "s" { Ok(AtomicSymbol::S) }
-        else if symbol == "cl" { Ok(AtomicSymbol::Cl) }
-        else if symbol == "ar" { Ok(AtomicSymbol::Ar) }
-        else if symbol == "k" { Ok(AtomicSymbol::K) }
-        else if symbol == "ca" { Ok(AtomicSymbol::Ca) }
-        else if symbol == "sc" { Ok(AtomicSymbol::Sc) }
-        else if symbol == "ti" { Ok(AtomicSymbol::Ti) }
-        else if symbol == "v" { Ok(AtomicSymbol::V) }
-        else if symbol == "cr" { Ok(AtomicSymbol::Cr) }
-        else if symbol == "mn" { Ok(AtomicSymbol::Mn) }
-        else if symbol == "fe" { Ok(AtomicSymbol::Fe) }
-        else if symbol == "co" { Ok(AtomicSymbol::Co) }
-        else if symbol == "ni" { Ok(AtomicSymbol::Ni) }
-        else if symbol == "cu" { Ok(AtomicSymbol::Cu) }
-        else if symbol == "zn" { Ok(AtomicSymbol::Zn) }
-        else if symbol == "ga" { Ok(AtomicSymbol::Ga) }
-        else if symbol == "ge" { Ok(AtomicSymbol::Ge) }
-        else if symbol == "as" { Ok(AtomicSymbol::As) }
-        else if symbol == "se" { Ok(AtomicSymbol::Se) }
-        else if symbol == "br" { Ok(AtomicSymbol::Br) }
-        else if symbol == "kr" { Ok(AtomicSymbol::Kr) }
-        else if symbol == "rb" { Ok(AtomicSymbol::Rb) }
-        else if symbol == "sr" { Ok(AtomicSymbol::Sr) }
-        else if symbol == "y" { Ok(AtomicSymbol::Y) }
-        else if symbol == "zr" { Ok(AtomicSymbol::Zr) }
-        else if symbol == "nb" { Ok(AtomicSymbol::Nb) }
-        else if symbol == "mo" { Ok(AtomicSymbol::Mo) }
-        else if symbol == "tc" { Ok(AtomicSymbol::Tc) }
-        else if symbol == "ru" { Ok(AtomicSymbol::Ru) }
-        else if symbol == "rh" { Ok(AtomicSymbol::Rh) }
-        else if symbol == "pd" { Ok(AtomicSymbol::Pd) }
-        else if symbol == "ag" { Ok(AtomicSymbol::Ag) }
-        else if symbol == "cd" { Ok(AtomicSymbol::Cd) }
-        else if symbol == "in" { Ok(AtomicSymbol::In) }
-        else if symbol == "sn" { Ok(AtomicSymbol::Sn) }
-        else if symbol == "sb" { Ok(AtomicSymbol::Sb) }
-        else if symbol == "te" { Ok(AtomicSymbol::Te) }
-        else if symbol == "i" { Ok(AtomicSymbol::I) }
-        else if symbol == "xe" { Ok(AtomicSymbol::Xe) }
-        else if symbol == "cs" { Ok(AtomicSymbol::Cs) }
-        else if symbol == "ba" { Ok(AtomicSymbol::Ba) }
-        else if symbol == "hf" { Ok(AtomicSymbol::Hf) }
-        else if symbol == "ta" { Ok(AtomicSymbol::Ta) }
-        else if symbol == "w" { Ok(AtomicSymbol::W) }
-        else if symbol == "re" { Ok(AtomicSymbol::Re) }
-        else if symbol == "os" { Ok(AtomicSymbol::Os) }
-        else if symbol == "ir" { Ok(AtomicSymbol::Ir) }
-        else if symbol == "pt" { Ok(AtomicSymbol::Pt) }
-        else if symbol == "au" { Ok(AtomicSymbol::Au) }
-        else if symbol == "hg" { Ok(AtomicSymbol::Hg) }
-        else if symbol == "tl" { Ok(AtomicSymbol::Tl) }
-        else if symbol == "pb" { Ok(AtomicSymbol::Pb) }
-        else if symbol == "bi" { Ok(AtomicSymbol::Bi) }
-        else if symbol == "po" { Ok(AtomicSymbol::Po) }
-        else if symbol == "at" { Ok(AtomicSymbol::At) }
-        else if symbol == "rn" { Ok(AtomicSymbol::Rn) }
-        else if symbol == "fr" { Ok(AtomicSymbol::Fr) }
-        else if symbol == "ra" { Ok(AtomicSymbol::Ra) }
-        else if symbol == "rf" { Ok(AtomicSymbol::Rf) }
-        else if symbol == "db" { Ok(AtomicSymbol::Db) }
-        else if symbol == "sg" { Ok(AtomicSymbol::Sg) }
-        else if symbol == "bh" { Ok(AtomicSymbol::Bh) }
-        else if symbol == "hs" { Ok(AtomicSymbol::Hs) }
-        else if symbol == "mt" { Ok(AtomicSymbol::Mt) }
-        else if symbol == "ds" { Ok(AtomicSymbol::Ds) }
-        else if symbol == "rg" { Ok(AtomicSymbol::Rg) }
-        else if symbol == "cn" { Ok(AtomicSymbol::Cn) }
-        else if symbol == "nh" { Ok(AtomicSymbol::Nh) }
-        else if symbol == "fl" { Ok(AtomicSymbol::Fl) }
-        else if symbol == "mc" { Ok(AtomicSymbol::Mc) }
-        else if symbol == "lv" { Ok(AtomicSymbol::Lv) }
-        else if symbol == "ts" { Ok(AtomicSymbol::Ts) }
-        else if symbol == "og" { Ok(AtomicSymbol::Og) }
-        else if symbol == "la" { Ok(AtomicSymbol::La) }
-        else if symbol == "ce" { Ok(AtomicSymbol::Ce) }
-        else if symbol == "pr" { Ok(AtomicSymbol::Pr) }
-        else if symbol == "nd" { Ok(AtomicSymbol::Nd) }
-        else if symbol == "pm" { Ok(AtomicSymbol::Pm) }
-        else if symbol == "sm" { Ok(AtomicSymbol::Sm) }
-        else if symbol == "eu" { Ok(AtomicSymbol::Eu) }
-        else if symbol == "gd" { Ok(AtomicSymbol::Gd) }
-        else if symbol == "tb" { Ok(AtomicSymbol::Tb) }
-        else if symbol == "dy" { Ok(AtomicSymbol::Dy) }
-        else if symbol == "ho" { Ok(AtomicSymbol::Ho) }
-        else if symbol == "er" { Ok(AtomicSymbol::Er) }
-        else if symbol == "tm" { Ok(AtomicSymbol::Tm) }
-        else if symbol == "yb" { Ok(AtomicSymbol::Yb) }
-        else if symbol == "lu" { Ok(AtomicSymbol::Lu) }
-        else if symbol == "ac" { Ok(AtomicSymbol::Ac) }
-        else if symbol == "th" { Ok(AtomicSymbol::Th) }
-        else if symbol == "pa" { Ok(AtomicSymbol::Pa) }
-        else if symbol == "u" { Ok(AtomicSymbol::U) }
-        else if symbol == "np" { Ok(AtomicSymbol::Np) }
-        else if symbol == "pu" { Ok(AtomicSymbol::Pu) }
-        else if symbol == "am" { Ok(AtomicSymbol::Am) }
-        else if symbol == "cm" { Ok(AtomicSymbol::Cm) }
-        else if symbol == "bk" { Ok(AtomicSymbol::Bk) }
-        else if symbol == "cf" { Ok(AtomicSymbol::Cf) }
-        else if symbol == "es" { Ok(AtomicSymbol::Es) }
-        else if symbol == "fm" { Ok(AtomicSymbol::Fm) }
-        else if symbol == "md" { Ok(AtomicSymbol::Md) }
-        else if symbol == "no" { Ok(AtomicSymbol::No) }
-        else if symbol == "lr" { Ok(AtomicSymbol::Lr) }
-        else { Err(symbol.to_string()) }
-    }
-
     pub fn to_string(&self) -> &str {
         match self {
+            AtomicSymbol::Star => "*",
             AtomicSymbol::H => "H",
             AtomicSymbol::He => "He",
             AtomicSymbol::Li => "Li",
@@ -265,8 +501,9 @@ impl AtomicSymbol {
         }
     }
 
-    pub fn atomic_number(&self) -> usize {
+    pub fn atomic_number(&self) -> u8 {
         match self {
+            AtomicSymbol::Star => 0,
             AtomicSymbol::H => 1,
             AtomicSymbol::He => 2,
             AtomicSymbol::Li => 3,
@@ -390,6 +627,7 @@ impl AtomicSymbol {
 
     pub fn default_isotope(&self) -> usize {
         match self {
+            AtomicSymbol::Star => 0,
             AtomicSymbol::H => 1,
             AtomicSymbol::He => 4,
             AtomicSymbol::Li => 7,
@@ -511,21 +749,142 @@ impl AtomicSymbol {
         }
     }
 
-    pub fn atomic_mass(&self) {}
-
-    pub fn num_imp_h(&self) -> usize {
+    pub fn n_val_electrons(&self) -> u8 {
         match self {
+            AtomicSymbol::Star => todo!(),
+            AtomicSymbol::H => 1,
+            AtomicSymbol::He => 2,
+            AtomicSymbol::Li => 1,
+            AtomicSymbol::Be => 2,
             AtomicSymbol::B => 3,
             AtomicSymbol::C => 4,
-            AtomicSymbol::N => 3,
-            AtomicSymbol::O => 2,
-            AtomicSymbol::F => 1,
-            AtomicSymbol::P => 3,
-            AtomicSymbol::S => 2,
-            AtomicSymbol::Cl => 1,
-            AtomicSymbol::Br => 1,
-            AtomicSymbol::I => 1,
-            _ => 0,
+            AtomicSymbol::N => 5,
+            AtomicSymbol::O => 6,
+            AtomicSymbol::F => 7,
+            AtomicSymbol::Ne => 8,
+            AtomicSymbol::Na => 1,
+            AtomicSymbol::Mg => 2,
+            AtomicSymbol::Al => 3,
+            AtomicSymbol::Si => 4,
+            AtomicSymbol::P => 5,
+            AtomicSymbol::S => 6,
+            AtomicSymbol::Cl => 7,
+            AtomicSymbol::Ar => 8,
+            AtomicSymbol::K => 1,
+            AtomicSymbol::Ca => 2,
+            AtomicSymbol::Sc => 3,
+            AtomicSymbol::Ti => 4,
+            AtomicSymbol::V => 5,
+            AtomicSymbol::Cr => 6,
+            AtomicSymbol::Mn => 7,
+            AtomicSymbol::Fe => 8,
+            AtomicSymbol::Co => 9,
+            AtomicSymbol::Ni => 10,
+            AtomicSymbol::Cu => 11,
+            AtomicSymbol::Zn => 12,
+            AtomicSymbol::Ga => 3,
+            AtomicSymbol::Ge => 4,
+            AtomicSymbol::As => 5,
+            AtomicSymbol::Se => 6,
+            AtomicSymbol::Br => 7,
+            AtomicSymbol::Kr => 8,
+            AtomicSymbol::Rb => 1,
+            AtomicSymbol::Sr => 2,
+            AtomicSymbol::Y => 3,
+            AtomicSymbol::Zr => 4,
+            AtomicSymbol::Nb => 5,
+            AtomicSymbol::Mo => 6,
+            AtomicSymbol::Tc => 7,
+            AtomicSymbol::Ru => 8,
+            AtomicSymbol::Rh => 9,
+            AtomicSymbol::Pd => 10,
+            AtomicSymbol::Ag => 11,
+            AtomicSymbol::Cd => 12,
+            AtomicSymbol::In => 3,
+            AtomicSymbol::Sn => 4,
+            AtomicSymbol::Sb => 5,
+            AtomicSymbol::Te => 6,
+            AtomicSymbol::I => 7,
+            AtomicSymbol::Xe => 8,
+            AtomicSymbol::Cs => 1,
+            AtomicSymbol::Ba => 2,
+            AtomicSymbol::Hf => 4,
+            AtomicSymbol::Ta => 5,
+            AtomicSymbol::W => 6,
+            AtomicSymbol::Re => 7,
+            AtomicSymbol::Os => 8,
+            AtomicSymbol::Ir => 9,
+            AtomicSymbol::Pt => 10,
+            AtomicSymbol::Au => 11,
+            AtomicSymbol::Hg => 12,
+            AtomicSymbol::Tl => 13,
+            AtomicSymbol::Pb => 14,
+            AtomicSymbol::Bi => 15,
+            AtomicSymbol::Po => 16,
+            AtomicSymbol::At => 17,
+            AtomicSymbol::Rn => 18,
+            AtomicSymbol::Fr => 1,
+            AtomicSymbol::Ra => 2,
+            AtomicSymbol::Rf => 4,
+            AtomicSymbol::Db => 5,
+            AtomicSymbol::Sg => 6,
+            AtomicSymbol::Bh => 7,
+            AtomicSymbol::Hs => 8,
+            AtomicSymbol::Mt => 9,
+            AtomicSymbol::Ds => 10,
+            AtomicSymbol::Rg => 11,
+            AtomicSymbol::Cn => 12,
+            AtomicSymbol::Nh => 13,
+            AtomicSymbol::Fl => 14,
+            AtomicSymbol::Mc => 15,
+            AtomicSymbol::Lv => 16,
+            AtomicSymbol::Ts => 17,
+            AtomicSymbol::Og => 18,
+            AtomicSymbol::La => todo!(),
+            AtomicSymbol::Ce => todo!(),
+            AtomicSymbol::Pr => todo!(),
+            AtomicSymbol::Nd => todo!(),
+            AtomicSymbol::Pm => todo!(),
+            AtomicSymbol::Sm => todo!(),
+            AtomicSymbol::Eu => todo!(),
+            AtomicSymbol::Gd => todo!(),
+            AtomicSymbol::Tb => todo!(),
+            AtomicSymbol::Dy => todo!(),
+            AtomicSymbol::Ho => todo!(),
+            AtomicSymbol::Er => todo!(),
+            AtomicSymbol::Tm => todo!(),
+            AtomicSymbol::Yb => todo!(),
+            AtomicSymbol::Lu => todo!(),
+            AtomicSymbol::Ac => todo!(),
+            AtomicSymbol::Th => todo!(),
+            AtomicSymbol::Pa => todo!(),
+            AtomicSymbol::U => todo!(),
+            AtomicSymbol::Np => todo!(),
+            AtomicSymbol::Pu => todo!(),
+            AtomicSymbol::Am => todo!(),
+            AtomicSymbol::Cm => todo!(),
+            AtomicSymbol::Bk => todo!(),
+            AtomicSymbol::Cf => todo!(),
+            AtomicSymbol::Es => todo!(),
+            AtomicSymbol::Fm => todo!(),
+            AtomicSymbol::Md => todo!(),
+            AtomicSymbol::No => todo!(),
+            AtomicSymbol::Lr => todo!(),
+        }
+    }
+
+    pub fn maximum_valence(&self, charge: i8, expanded_octet: bool) -> u8 {
+        let n_val_electrons = self.n_val_electrons() as i8;
+        let n_val_electrons_with_charge = n_val_electrons - charge;
+
+        let atomic_number = self.atomic_number();
+        if atomic_number <= 10 || !expanded_octet {
+            4 - (4 - n_val_electrons_with_charge).unsigned_abs()
+        } else if atomic_number <= 54 {
+            (4 - (4 - n_val_electrons_with_charge).abs()
+                + 2 * (n_val_electrons_with_charge - 4).min(n_val_electrons - 4)) as u8
+        } else {
+            todo!()
         }
     }
 }
@@ -535,20 +894,55 @@ mod test {
     use super::*;
 
     #[test]
-    fn atomic_symbol_from_str() {
-        assert_eq!(AtomicSymbol::new("H").unwrap(), AtomicSymbol::H);
-        assert_eq!(AtomicSymbol::new("h").unwrap(), AtomicSymbol::H);
-        assert_eq!(AtomicSymbol::new("He").unwrap(), AtomicSymbol::He);
-        assert_eq!(AtomicSymbol::new("he").unwrap(), AtomicSymbol::He);
-    }
-    #[test]
-    fn atomic_symbol_to_str() {
-        assert_eq!(AtomicSymbol::new("H").unwrap().to_string(), "H");
-        assert_eq!(AtomicSymbol::new("he").unwrap().to_string(), "He");
-    }
-    #[test]
-    fn atomic_symbol_to_atomic_number() {
-        assert_eq!(AtomicSymbol::new("H").unwrap().atomic_number(), 1);
-        assert_eq!(AtomicSymbol::new("he").unwrap().atomic_number(), 2);
+    fn test_atomic_symbol_maximum_valence() {
+        let atomic_symbols_charges = [
+            (AtomicSymbol::B, 0),
+            (AtomicSymbol::B, -1),
+            (AtomicSymbol::C, 1),
+            (AtomicSymbol::C, 0),
+            (AtomicSymbol::C, -1),
+            (AtomicSymbol::N, 1),
+            (AtomicSymbol::N, 0),
+            (AtomicSymbol::N, -1),
+            (AtomicSymbol::O, -2),
+            (AtomicSymbol::O, -1),
+            (AtomicSymbol::O, 0),
+            (AtomicSymbol::O, 1),
+            (AtomicSymbol::P, -1),
+            (AtomicSymbol::P, 0),
+            (AtomicSymbol::P, 1),
+            (AtomicSymbol::S, -1),
+            (AtomicSymbol::S, 0),
+            (AtomicSymbol::S, 1),
+            (AtomicSymbol::S, 2),
+            (AtomicSymbol::Cl, -1),
+            (AtomicSymbol::Cl, 0),
+            (AtomicSymbol::Cl, 1),
+            (AtomicSymbol::Cl, 2),
+            (AtomicSymbol::Cl, 3),
+            (AtomicSymbol::Br, -1),
+            (AtomicSymbol::Br, 0),
+            (AtomicSymbol::Br, 1),
+            (AtomicSymbol::Br, 2),
+            (AtomicSymbol::Br, 3),
+            (AtomicSymbol::I, -1),
+            (AtomicSymbol::I, 0),
+            (AtomicSymbol::I, 1),
+            (AtomicSymbol::I, 2),
+            (AtomicSymbol::I, 3),
+        ];
+        let maximum_valences = [
+            3, 4, 3, 4, 3, 4, 3, 2, 0, 1, 2, 3, 4, 5, 4, 5, 6, 5, 4, 6, 7, 6, 5, 4, 6, 7, 6, 5, 4,
+            6, 7, 6, 5, 4,
+        ];
+        for (atomic_symbol_charge, maximum_valence) in
+            atomic_symbols_charges.iter().zip(maximum_valences)
+        {
+            let (atomic_symbol, charge) = atomic_symbol_charge;
+            assert_eq!(
+                atomic_symbol.maximum_valence(*charge as i8, true),
+                maximum_valence
+            );
+        }
     }
 }

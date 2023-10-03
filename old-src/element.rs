@@ -515,7 +515,7 @@ impl From<&Element> for u8 {
 }
 
 impl Element {
-    pub fn default_isotope(&self) -> usize {
+    pub fn default_isotope(&self) -> u16 {
         match self {
             Element::Star => 0,
             Element::H => 1,
@@ -636,6 +636,40 @@ impl Element {
             Element::Md => 258,
             Element::No => 259,
             Element::Lr => 262,
+        }
+    }
+
+    pub fn atomic_weight(&self, isotope: u16) -> f64 {
+        // https://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl?ele=&all=all&ascii=html
+        match (self, isotope) {
+            (Element::Star, _) => 0.0,
+            (Element::H, 0) => 1.007_975,
+            (Element::H, 1) => 1.007_825,
+            (Element::H, 2) => 2.014_101,
+            (Element::H, 3) => 3.016_049,
+            (Element::B, 0) => 10.813_5,
+            (Element::B, 10) => 10.012_936,
+            (Element::B, 11) => 11.009_305,
+            (Element::C, 0) => 12.010_6,
+            (Element::C, 12) => 12.000_000,
+            (Element::C, 13) => 13.003_355,
+            (Element::C, 14) => 14.003_241,
+            (Element::N, 0) => 14.006_855,
+            (Element::N, 14) => 14.003_074,
+            (Element::N, 15) => 15.000_109,
+            (Element::O, 0) => 15.999_4,
+            (Element::O, 16) => 15.994_914,
+            (Element::O, 17) => 16.999_132,
+            (Element::O, 18) => 17.999_160,
+            (Element::F, 0 | 19) => 18.998_403,
+            (Element::F, 18) => 18.000_938,
+            (Element::Si, 0) => 28.085,
+            (Element::P, 0 | 31) => 30.973_762,
+            (Element::S, 0) => 32.067_5,
+            (Element::Cl, 0) => 35.451_5,
+            (Element::Br, 0) => 79.904,
+            (Element::I, 0 | 127) => 126.904_472,
+            _ => todo!(),
         }
     }
 
