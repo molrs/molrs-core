@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 
 use pertable::Element;
@@ -15,12 +15,15 @@ enum AtomAttribute {
 #[derive(Debug)]
 pub enum MoleculeError {
     SmilesParseError(String),
+    KekulizationError(String),
+    BondOrderError(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Molecule {
     pub atoms: Vec<Atom>,
     pub bonds: Vec<Bond>,
+    pub rings: Option<Vec<Vec<usize>>>,
 }
 
 impl FromStr for Molecule {
@@ -183,8 +186,135 @@ impl FromStr for Molecule {
             }
         }
 
-        Ok(Molecule { atoms, bonds })
+        let mut mol = Molecule {
+            atoms,
+            bonds,
+            rings: Some(vec![]),
+        };
+        mol.perceive_rings();
+        // mol.perceive_default_bonds();
+        // mol = match mol.kekulized() {
+        //     Ok(mol) => mol,
+        //     Err(_) => {
+        //         return Err(MoleculeError::KekulizationError(format!("{s} | could not be kekulized")));
+        //     }
+        // };
+        // match mol.perceive_implicit_hydrogens() {
+        //     Ok(_) => (),
+        //     Err(e) => {
+        //         return Err(MoleculeError::BondOrderError(format!("{e}")));
+        //     }
+        // }
+        // mol = mol.delocalized();
+
+        Ok(mol)
     }
+}
+
+impl Molecule {
+    pub fn neighbor_indicies(&self, index: usize) -> Vec<usize> {
+        let mut neighbor_indicies = vec![];
+        for bond in &self.bonds {
+            if bond.i == index {
+                neighbor_indicies.push(bond.j);
+            } else if bond.j == index {
+                neighbor_indicies.push(bond.i);
+            }
+        }
+
+        neighbor_indicies
+    }
+
+    pub fn perceive_rings(&mut self) {
+        let mut paths = vec![];
+        let mut closed_paths = vec![];
+        for neighbor_index in self.neighbor_indicies(0) {
+            paths.push(vec![0, neighbor_index]);
+        }
+
+        let mut counter = 0;
+        while counter < 20 && !paths.is_empty() {
+            counter += 1;
+
+            let mut new_paths = vec![];
+            for path in paths.iter_mut() {
+                if path.is_empty() {
+                    continue;
+                }
+                let last_atom_index = *path.last().unwrap();
+                let second_to_last_atom_index = path.iter().rev().nth(1).unwrap();
+                let mut neighbor_indices = self.neighbor_indicies(last_atom_index);
+                neighbor_indices
+                    .retain(|neighbor_index| neighbor_index != second_to_last_atom_index);
+                if neighbor_indices.is_empty() {
+                    *path = vec![];
+                } else {
+                    for neighbor_index in &neighbor_indices[1..] {
+                        let mut new_path = path.clone();
+                        new_path.push(*neighbor_index);
+                        new_paths.push(new_path);
+                    }
+                    path.push(neighbor_indices[0]);
+                }
+            }
+            for new_path in new_paths {
+                paths.push(new_path);
+            }
+            for path in paths.iter_mut() {
+                if !path.is_empty() {
+                    if let Some(index_of_duplicate) = get_index_of_duplicate(path) {
+                        closed_paths.push(path[(index_of_duplicate)..path.len() - 1].to_owned());
+                        *path = vec![];
+                    }
+                }
+            }
+            for i in (0..paths.len()).rev() {
+                if paths[i].is_empty() {
+                    paths.remove(i);
+                }
+            }
+        }
+        closed_paths = deduplicate_vecs(closed_paths);
+        closed_paths.sort_by_key(|closed_loop| -(closed_loop.len() as isize));
+
+        self.rings = Some(closed_paths);
+    }
+}
+
+fn get_index_of_duplicate(v: &[usize]) -> Option<usize> {
+    let mut hashset = HashSet::new();
+    for item in v {
+        if hashset.contains(item) {
+            return Some(v.iter().position(|val| val == item).unwrap());
+        } else {
+            hashset.insert(*item);
+        }
+    }
+
+    None
+}
+
+pub fn deduplicate_vecs(mut closed_loops: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
+    let mut sorted_clone = closed_loops.clone();
+    sorted_clone
+        .iter_mut()
+        .for_each(|closed_loop| closed_loop.sort());
+    let mut loops_to_drop = HashSet::new();
+    for i in (1..sorted_clone.len()).rev() {
+        let closed_loop = sorted_clone.get(i).unwrap();
+        for other_loop in &sorted_clone[0..i] {
+            if closed_loop == other_loop {
+                loops_to_drop.insert(i);
+            }
+        }
+    }
+    let mut loops_to_drop: Vec<usize> = loops_to_drop.into_iter().collect();
+    loops_to_drop.sort();
+    for i in loops_to_drop.iter().rev() {
+        closed_loops.remove(*i);
+    }
+
+    closed_loops
 }
 
 #[cfg(test)]
@@ -209,6 +339,7 @@ mod tests {
                         point_chirality: PointChirality::Undefined,
                     }],
                     bonds: vec![],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -224,6 +355,7 @@ mod tests {
                         point_chirality: PointChirality::Undefined,
                     }],
                     bonds: vec![],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -254,6 +386,7 @@ mod tests {
                         j: 1,
                         bond_type: BondType::Single,
                     }],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -300,6 +433,7 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -360,6 +494,7 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -420,6 +555,7 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -494,6 +630,7 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -524,6 +661,7 @@ mod tests {
                         j: 1,
                         bond_type: BondType::Default,
                     }],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -598,6 +736,7 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![]),
                 },
             ),
             (
@@ -649,6 +788,7 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![vec![0, 1, 2]]),
                 },
             ),
             (
@@ -714,12 +854,26 @@ mod tests {
                             bond_type: BondType::Default,
                         },
                     ],
+                    rings: Some(vec![vec![0, 1, 2]]),
                 },
             ),
         ];
 
         for (smi, mol) in data {
+            dbg!(&smi);
             assert_eq!(Molecule::from_str(smi).unwrap(), mol);
         }
+    }
+
+    #[test]
+    fn test_neighbor_indicies() {
+        let mol = Molecule::from_str("CCC").unwrap();
+        assert_eq!(mol.neighbor_indicies(1), vec![0, 2]);
+    }
+
+    #[test]
+    fn playground() {
+        let mol = Molecule::from_str("C1CCCC1").unwrap();
+        dbg!(&mol);
     }
 }
