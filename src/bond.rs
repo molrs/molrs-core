@@ -6,7 +6,7 @@ pub enum BondError {
     AtomBondedToSelf,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BondType {
     #[default]
     Default,
@@ -102,7 +102,7 @@ impl From<&BondType> for f64 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Bond {
     pub i: usize,
     pub j: usize,
