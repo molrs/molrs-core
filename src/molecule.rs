@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use pertable::Element;
@@ -29,6 +30,7 @@ impl FromStr for Molecule {
         let mut atoms = vec![];
         let mut bond = Bond::default();
         let mut bonds = vec![];
+        let mut ring_closures = HashMap::new();
 
         let mut c_is_in_bracket = false;
         let mut atom_attribute = AtomAttribute::Isotope;
@@ -116,10 +118,24 @@ impl FromStr for Molecule {
                 || c == '.'
             {
                 bond.bond_type = BondType::try_from(c).unwrap();
-            } else if c == '%' || c.is_numeric() {
+            } else if c == '%' {
                 unimplemented!()
+            } else if c.is_numeric() {
+                let c_as_digit = c.to_digit(10).unwrap() as usize;
+                if let std::collections::hash_map::Entry::Vacant(e) =
+                    ring_closures.entry(c_as_digit)
+                {
+                    e.insert(atoms.len() - 1);
+                } else {
+                    let ring_closure_bond = Bond {
+                        i: *ring_closures.get(&c_as_digit).unwrap(),
+                        j: atoms.len() - 1,
+                        bond_type: bond.bond_type,
+                    };
+                    bond.bond_type = BondType::Default;
+                    bonds.push(ring_closure_bond);
+                }
             } else if c == '(' {
-                // root_atom.push(bonds.last().unwrap().i);
                 root_atom.push(*root_atom.last().unwrap());
             } else if c == ')' {
                 root_atom.pop();
@@ -583,8 +599,122 @@ mod tests {
                     ],
                 },
             ),
-            // "C1CC=1"
-            // "C%10CC%10"
+            (
+                "C1CC1",
+                Molecule {
+                    atoms: vec![
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                    ],
+                    bonds: vec![
+                        Bond {
+                            i: 0,
+                            j: 1,
+                            bond_type: BondType::Default,
+                        },
+                        Bond {
+                            i: 1,
+                            j: 2,
+                            bond_type: BondType::Default,
+                        },
+                        Bond {
+                            i: 0,
+                            j: 2,
+                            bond_type: BondType::Default,
+                        },
+                    ],
+                },
+            ),
+            (
+                "C1CC=1C",
+                Molecule {
+                    atoms: vec![
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: None,
+                            n_radical_electrons: None,
+                            point_chirality: PointChirality::Undefined,
+                        },
+                    ],
+                    bonds: vec![
+                        Bond {
+                            i: 0,
+                            j: 1,
+                            bond_type: BondType::Default,
+                        },
+                        Bond {
+                            i: 1,
+                            j: 2,
+                            bond_type: BondType::Default,
+                        },
+                        Bond {
+                            i: 0,
+                            j: 2,
+                            bond_type: BondType::Double,
+                        },
+                        Bond {
+                            i: 2,
+                            j: 3,
+                            bond_type: BondType::Default,
+                        },
+                    ],
+                },
+            ),
         ];
 
         for (smi, mol) in data {
