@@ -134,6 +134,7 @@ impl FromStr for Molecule {
                     };
                     bond.bond_type = BondType::Default;
                     bonds.push(ring_closure_bond);
+                    ring_closures.remove(&c_as_digit);
                 }
             } else if c == '(' {
                 root_atom.push(*root_atom.last().unwrap());
