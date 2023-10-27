@@ -353,7 +353,7 @@ impl Molecule {
                             )))
                         }
                     };
-                    if element_str.chars().nth(0).unwrap().is_lowercase() {
+                    if element_str.chars().next().unwrap().is_lowercase() {
                         atom.delocalized = true;
                     };
                     element_str = String::new();
