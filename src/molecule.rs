@@ -195,14 +195,6 @@ impl FromStr for Molecule {
             bonds,
             rings: None,
         };
-        mol.perceive_rings();
-        mol = match mol.kekulized() {
-            Ok(mol) => mol,
-            Err(e) => {
-                return Err(MoleculeError::KekulizationError(format!("{s} | {:?}", e)));
-            }
-        };
-        mol.perceive_default_bonds();
         match mol.perceive_implicit_hydrogens() {
             Ok(_) => (),
             Err(err) => {
@@ -211,7 +203,15 @@ impl FromStr for Molecule {
                     err
                 )));
             }
-        }
+        };
+        mol.perceive_rings();
+        mol = match mol.kekulized() {
+            Ok(mol) => mol,
+            Err(e) => {
+                return Err(MoleculeError::KekulizationError(format!("{s} | {:?}", e)));
+            }
+        };
+        mol.perceive_default_bonds();
         mol = mol.delocalized();
         // mol.perceive_stereo();  TODO
 
@@ -233,6 +233,7 @@ impl ToString for Molecule {
         let mut ring_closure_bonds = vec![];
 
         for i in 1..self.atoms.len() {
+            dbg!(&smi);
             let atom = self.atoms[i];
             let mut atom_str = atom.to_string();
 
@@ -243,14 +244,15 @@ impl ToString for Molecule {
                 atom_str = "[nH]".to_owned();
             };
 
+            dbg!(&atom_str);
+
             let mut neighbors = self.atom_neighbor_indicies(i);
             neighbors.retain(|neighbor| *neighbor < i);
             neighbors.sort();
+            dbg!(&neighbors);
             if neighbors.len() > 1 {
-                for j in 0..neighbors.len() - 1 {
-                    let neighbor = neighbors[j];
-
-                    let ring_closure_bond = self.atoms_bonds_between(i, neighbor).unwrap();
+                for neighbor in neighbors.iter().take(neighbors.len() - 1) {
+                    let ring_closure_bond = self.atoms_bonds_between(i, *neighbor).unwrap();
                     ring_closure_bonds.push(ring_closure_bond);
                     let mut cursor = atom_str_indicies[ring_closure_bond.i + 1];
                     while ['(', ')'].contains(&smi.chars().nth(cursor).unwrap()) {
@@ -270,9 +272,12 @@ impl ToString for Molecule {
                     for index in atom_str_indicies[neighbor + 1..].iter_mut() {
                         *index += 1;
                     }
-                    neighbors.remove(j);
+
+                    dbg!(&smi);
                 }
             }
+
+            neighbors = vec![*neighbors.last().unwrap()];
 
             if neighbors.contains(&(i - 1)) {
                 atom_str_indicies.push(smi.len());
@@ -340,6 +345,12 @@ impl Molecule {
 
         let mut mol = self.clone();
 
+        for bond in mol.bonds.iter_mut() {
+            if bond.bond_type == BondType::Delocalized {
+                bond.bond_type = BondType::Default;
+            }
+        }
+
         let mut conjugated_rings = vec![];
         for ring in mol.rings.as_ref().unwrap() {
             if ring
@@ -360,7 +371,7 @@ impl Molecule {
                     let atom = mol.atoms[index];
                     let maximum_valence = atom.element.valence(atom.charge).unwrap();
                     let bond_order =
-                        mol.atom_explicit_valence(index) + atom.n_implicit_hydrogens.unwrap_or(0);
+                        mol.atom_explicit_valence(index) + atom.n_implicit_hydrogens.unwrap();
                     if mol.atom_n_double_bonds(index) == 0 && bond_order < maximum_valence {
                         for path in contiguous_paths.iter_mut() {
                             if self
@@ -409,7 +420,7 @@ impl Molecule {
         }
 
         for bond in mol.bonds.iter_mut() {
-            if bond.bond_type == BondType::Delocalized {
+            if bond.bond_type == BondType::Default {
                 bond.bond_type = BondType::Single;
             }
         }
@@ -485,6 +496,72 @@ impl Molecule {
             .sum::<f64>() as u8
     }
 
+    pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
+        let bond_orders: Vec<u8> = (0..self.atoms.len())
+            .map(|index| self.atom_explicit_valence(index))
+            .collect();
+        let vec_n_double_bonds: Vec<u8> = (0..self.atoms.len())
+            .map(|index| self.atom_n_double_bonds(index))
+            .collect();
+
+        for (i, atom) in self.atoms.iter_mut().enumerate() {
+            let mut maximum_valence = atom.element.valence(atom.charge).unwrap();
+            let n_double_bonds = vec_n_double_bonds[i];
+            match atom.element {
+                Element::P => {
+                    if n_double_bonds == 0 {
+                    } else if n_double_bonds == 1 {
+                        maximum_valence += 2;
+                    } else {
+                        return Err(MoleculeError::BondOrderError(
+                            "P has more than 1 double bond".to_owned(),
+                        ));
+                    }
+                }
+                Element::S => {
+                    if n_double_bonds == 0 {
+                    } else if n_double_bonds < 3 {
+                        maximum_valence += 2 * n_double_bonds;
+                    } else {
+                        return Err(MoleculeError::BondOrderError(
+                            "S has more than 2 double bonds".to_owned(),
+                        ));
+                    }
+                }
+                Element::Cl => {
+                    if n_double_bonds == 0 {
+                    } else if n_double_bonds < 4 {
+                        maximum_valence += 2 * n_double_bonds;
+                    } else {
+                        return Err(MoleculeError::BondOrderError(
+                            "Cl has more than 3 double bonds".to_owned(),
+                        ));
+                    }
+                }
+                _ => (),
+            };
+            let bond_order = bond_orders[i];
+            if bond_order > maximum_valence {
+                return Err(MoleculeError::BondOrderError(
+                    "explicit valence is higher than maximum allowed valence".to_owned(),
+                ));
+            }
+            let mut n_implicit_hydrogens = maximum_valence - bond_order;
+            if atom.n_implicit_hydrogens.is_none() {
+                if atom.delocalized && n_implicit_hydrogens > 0 {
+                    n_implicit_hydrogens -= 1;
+                }
+                atom.n_implicit_hydrogens = Some(n_implicit_hydrogens);
+                atom.n_radical_electrons = Some(0);
+            } else {
+                atom.n_radical_electrons =
+                    Some(n_implicit_hydrogens - atom.n_implicit_hydrogens.unwrap());
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn perceive_rings(&mut self) {
         let mut paths = vec![];
         let mut closed_paths = vec![];
@@ -555,69 +632,6 @@ impl Molecule {
         }
     }
 
-    pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
-        let bond_orders: Vec<u8> = (0..self.atoms.len())
-            .map(|index| self.atom_explicit_valence(index))
-            .collect();
-        let vec_n_double_bonds: Vec<u8> = (0..self.atoms.len())
-            .map(|index| self.atom_n_double_bonds(index))
-            .collect();
-
-        for (i, atom) in self.atoms.iter_mut().enumerate() {
-            let mut maximum_valence = atom.element.valence(atom.charge).unwrap();
-            let n_double_bonds = vec_n_double_bonds[i];
-            match atom.element {
-                Element::P => {
-                    if n_double_bonds == 0 {
-                    } else if n_double_bonds == 1 {
-                        maximum_valence += 2;
-                    } else {
-                        return Err(MoleculeError::BondOrderError(
-                            "P has more than 1 double bond".to_owned(),
-                        ));
-                    }
-                }
-                Element::S => {
-                    if n_double_bonds == 0 {
-                    } else if n_double_bonds < 3 {
-                        maximum_valence += 2 * n_double_bonds;
-                    } else {
-                        return Err(MoleculeError::BondOrderError(
-                            "S has more than 2 double bonds".to_owned(),
-                        ));
-                    }
-                }
-                Element::Cl => {
-                    if n_double_bonds == 0 {
-                    } else if n_double_bonds < 4 {
-                        maximum_valence += 2 * n_double_bonds;
-                    } else {
-                        return Err(MoleculeError::BondOrderError(
-                            "Cl has more than 3 double bonds".to_owned(),
-                        ));
-                    }
-                }
-                _ => (),
-            };
-            let bond_order = bond_orders[i];
-            if bond_order > maximum_valence {
-                return Err(MoleculeError::BondOrderError(
-                    "explicit valence is higher than maximum allowed valence".to_owned(),
-                ));
-            }
-            let n_implicit_hydrogens = maximum_valence - bond_order;
-            if atom.n_implicit_hydrogens.is_none() {
-                atom.n_implicit_hydrogens = Some(n_implicit_hydrogens);
-                atom.n_radical_electrons = Some(0);
-            } else {
-                atom.n_radical_electrons =
-                    Some(n_implicit_hydrogens - atom.n_implicit_hydrogens.unwrap());
-            }
-        }
-
-        Ok(())
-    }
-
     fn atom_n_double_bonds(&self, index: usize) -> u8 {
         self.atom_bonds(index)
             .iter()
@@ -646,7 +660,13 @@ mod tests {
     use pretty_assertions::assert_eq;
 
     #[test]
-    fn test_molecule_from_str() {
+    fn playground() {
+        let mol = Molecule::from_str("[nH]1cncc1").unwrap();
+        dbg!(&mol);
+    }
+
+    #[test]
+    fn test_molecule_from_and_to_str() {
         let data = [
             (
                 "C",
@@ -1284,15 +1304,20 @@ mod tests {
     }
 
     #[test]
-    fn test_neighbor_indicies() {
-        let mol = Molecule::from_str("CCC").unwrap();
-        assert_eq!(mol.atom_neighbor_indicies(1), vec![0, 2]);
+    fn test_kekulize() {
+        let mol = Molecule::from_str("c1ccccn1").unwrap();
+        assert_eq!("C1=CC=CC=N1", mol.kekulized().unwrap().to_string());
+
+        let mol = Molecule::from_str("[nH]1cccc1").unwrap();
+        assert_eq!("N1C=CC=C1", mol.kekulized().unwrap().to_string());
+
+        let mol = Molecule::from_str("c1ccc2ccccn12").unwrap();
+        assert_eq!("C1=CC=C2C=CC=CN12", mol.kekulized().unwrap().to_string());
     }
 
     #[test]
-    fn playground() {
-        let mol = Molecule::from_str("[nH]1cccc1").unwrap();
-        dbg!(&mol);
-        dbg!(mol.to_string());
+    fn test_neighbor_indicies() {
+        let mol = Molecule::from_str("CCC").unwrap();
+        assert_eq!(mol.atom_neighbor_indicies(1), vec![0, 2]);
     }
 }
