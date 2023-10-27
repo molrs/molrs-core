@@ -233,7 +233,6 @@ impl ToString for Molecule {
         let mut ring_closure_bonds = vec![];
 
         for i in 1..self.atoms.len() {
-            dbg!(&smi);
             let atom = self.atoms[i];
             let mut atom_str = atom.to_string();
 
@@ -244,15 +243,12 @@ impl ToString for Molecule {
                 atom_str = "[nH]".to_owned();
             };
 
-            dbg!(&atom_str);
-
             let mut neighbors = self.atom_neighbor_indicies(i);
             neighbors.retain(|neighbor| *neighbor < i);
             neighbors.sort();
-            dbg!(&neighbors);
             if neighbors.len() > 1 {
                 for neighbor in neighbors.iter().take(neighbors.len() - 1) {
-                    let ring_closure_bond = self.atoms_bonds_between(i, *neighbor).unwrap();
+                    let ring_closure_bond = self.atoms_bond_between(i, *neighbor).unwrap();
                     ring_closure_bonds.push(ring_closure_bond);
                     let mut cursor = atom_str_indicies[ring_closure_bond.i + 1];
                     while ['(', ')'].contains(&smi.chars().nth(cursor).unwrap()) {
@@ -272,8 +268,6 @@ impl ToString for Molecule {
                     for index in atom_str_indicies[neighbor + 1..].iter_mut() {
                         *index += 1;
                     }
-
-                    dbg!(&smi);
                 }
             }
 
@@ -375,12 +369,12 @@ impl Molecule {
                     if mol.atom_n_double_bonds(index) == 0 && bond_order < maximum_valence {
                         for path in contiguous_paths.iter_mut() {
                             if self
-                                .atoms_bonds_between(index, *path.last().unwrap())
+                                .atoms_bond_between(index, *path.last().unwrap())
                                 .is_some()
                             {
                                 path.push(index);
                             } else if self
-                                .atoms_bonds_between(index, *path.first().unwrap())
+                                .atoms_bond_between(index, *path.first().unwrap())
                                 .is_some()
                             {
                                 let mut new_path = vec![index];
@@ -464,7 +458,7 @@ impl Molecule {
             .collect()
     }
 
-    pub fn atoms_bonds_between(&self, i: usize, j: usize) -> Option<&Bond> {
+    pub fn atoms_bond_between(&self, i: usize, j: usize) -> Option<&Bond> {
         self.bonds
             .iter()
             .find(|&bond| (bond.i == i && bond.j == j) || (bond.i == j && bond.j == i))
@@ -496,7 +490,7 @@ impl Molecule {
             .sum::<f64>() as u8
     }
 
-    pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
+    fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
         let bond_orders: Vec<u8> = (0..self.atoms.len())
             .map(|index| self.atom_explicit_valence(index))
             .collect();
@@ -562,7 +556,7 @@ impl Molecule {
         Ok(())
     }
 
-    pub fn perceive_rings(&mut self) {
+    fn perceive_rings(&mut self) {
         let mut paths = vec![];
         let mut closed_paths = vec![];
         for neighbor_index in self.atom_neighbor_indicies(0) {
@@ -617,7 +611,7 @@ impl Molecule {
         self.rings = Some(closed_paths);
     }
 
-    pub fn perceive_default_bonds(&mut self) {
+    fn perceive_default_bonds(&mut self) {
         for bond in self.bonds.iter_mut() {
             if bond.bond_type != BondType::Default {
                 continue;
@@ -727,6 +721,37 @@ mod tests {
                         i: 0,
                         j: 1,
                         bond_type: BondType::Single,
+                    }],
+                    rings: Some(vec![]),
+                },
+            ),
+            (
+                "C#N",
+                Molecule {
+                    atoms: vec![
+                        Atom {
+                            element: Element::C,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: Some(1),
+                            n_radical_electrons: Some(0),
+                            point_chirality: PointChirality::Undefined,
+                        },
+                        Atom {
+                            element: Element::N,
+                            isotope: None,
+                            charge: 0,
+                            delocalized: false,
+                            n_implicit_hydrogens: Some(0),
+                            n_radical_electrons: Some(0),
+                            point_chirality: PointChirality::Undefined,
+                        },
+                    ],
+                    bonds: vec![Bond {
+                        i: 0,
+                        j: 1,
+                        bond_type: BondType::Triple,
                     }],
                     rings: Some(vec![]),
                 },
@@ -1316,8 +1341,64 @@ mod tests {
     }
 
     #[test]
-    fn test_neighbor_indicies() {
+    fn test_delocalized() {
+        let mol = Molecule::from_str("C1C=CC=CC=1").unwrap();
+        assert_eq!("c1ccccc1", mol.to_string());
+
+        let mol = Molecule::from_str("N1C=CN=C1").unwrap();
+        assert_eq!("[nH]1ccnc1", mol.to_string());
+
+        let mol = Molecule::from_str("C12=CC=CN1N=CS2").unwrap();
+        assert_eq!("c12cccn1ncs2", mol.to_string());
+    }
+
+    #[test]
+    fn test_atom_bonds() {
+        let mol = Molecule::from_str("CC(C)C").unwrap();
+        assert_eq!(
+            mol.atom_bonds(1),
+            vec![
+                &Bond {
+                    i: 0,
+                    j: 1,
+                    bond_type: BondType::Single
+                },
+                &Bond {
+                    i: 1,
+                    j: 2,
+                    bond_type: BondType::Single
+                },
+                &Bond {
+                    i: 1,
+                    j: 3,
+                    bond_type: BondType::Single
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn test_atoms_bond_between() {
+        let mol = Molecule::from_str("CC#N").unwrap();
+        assert_eq!(
+            mol.atoms_bond_between(1, 2),
+            Some(&Bond {
+                i: 1,
+                j: 2,
+                bond_type: BondType::Triple
+            })
+        );
+    }
+
+    #[test]
+    fn test_atom_neighbor_indicies() {
         let mol = Molecule::from_str("CCC").unwrap();
         assert_eq!(mol.atom_neighbor_indicies(1), vec![0, 2]);
+    }
+
+    #[test]
+    fn test_atom_explicit_valence() {
+        let mol = Molecule::from_str("CS(=O)C").unwrap();
+        assert_eq!(mol.atom_explicit_valence(1), 4);
     }
 }
