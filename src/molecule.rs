@@ -34,24 +34,24 @@ impl FromStr for Molecule {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut mol = Molecule::parse_smi(s)?;
 
-        match mol.perceive_implicit_hydrogens() {
-            Ok(_) => (),
-            Err(err) => {
-                return Err(MoleculeError::AssignImplicitHydrogensError(format!(
-                    "{s} | {:?}",
-                    err
-                )));
-            }
-        };
-        mol.perceive_rings();
-        mol = match mol.kekulized() {
-            Ok(mol) => mol,
-            Err(e) => {
-                return Err(MoleculeError::KekulizationError(format!("{s} | {:?}", e)));
-            }
-        };
-        mol.perceive_default_bonds();
-        mol = mol.delocalized();
+        // match mol.perceive_implicit_hydrogens() {
+        //     Ok(_) => (),
+        //     Err(err) => {
+        //         return Err(MoleculeError::AssignImplicitHydrogensError(format!(
+        //             "{s} | {:?}",
+        //             err
+        //         )));
+        //     }
+        // };
+        // mol.perceive_rings();
+        // mol = match mol.kekulized() {
+        //     Ok(mol) => mol,
+        //     Err(e) => {
+        //         return Err(MoleculeError::KekulizationError(format!("{s} | {:?}", e)));
+        //     }
+        // };
+        // mol.perceive_default_bonds();
+        // mol = mol.delocalized();
         // mol.perceive_stereo();  TODO
 
         Ok(mol)
@@ -60,110 +60,91 @@ impl FromStr for Molecule {
 
 impl ToString for Molecule {
     fn to_string(&self) -> String {
-        let atom = self.atoms[0];
-        let mut atom_str = atom.to_string();
-        if atom.element == Element::N && atom.delocalized && atom.n_implicit_hydrogens == Some(1) {
-            atom_str = "[nH]".to_owned();
-        };
+        let mut atom_strs: Vec<String> = self.atoms.iter().map(|atom| atom.to_string()).collect();
 
-        let mut smi = atom_str;
-        let mut atom_str_indicies = vec![0];
-        let mut ring_closure_count = 1;
-        let mut ring_closure_bonds = vec![];
+        let mut ring_closure_index = 1;
 
-        for i in 1..self.atoms.len() {
-            let atom = self.atoms[i];
-            let mut atom_str = atom.to_string();
-
-            if atom.element == Element::N
-                && atom.delocalized
+        for (i, atom) in self.atoms.iter().enumerate() {
+            if atom.delocalized
                 && atom.n_implicit_hydrogens == Some(1)
+                && atom.element == Element::N
             {
-                atom_str = "[nH]".to_owned();
-            };
+                atom_strs[i] = "[nH]".to_owned();
+            }
+        }
 
-            let mut neighbors = self.atom_neighbor_indicies(i);
-            neighbors.retain(|neighbor| *neighbor < i);
-            neighbors.sort();
-            if neighbors.len() > 1 {
-                for neighbor in neighbors.iter().take(neighbors.len() - 1) {
-                    let ring_closure_bond = self.atoms_bond_between(i, *neighbor).unwrap();
-                    ring_closure_bonds.push(ring_closure_bond);
-                    let mut cursor = atom_str_indicies[ring_closure_bond.i + 1];
-                    while ['(', ')'].contains(&smi.chars().nth(cursor).unwrap()) {
-                        cursor -= 1;
-                    }
-                    let mut ring_closure_str = ring_closure_count.to_string();
-                    ring_closure_count += 1;
-                    smi.insert_str(cursor, &ring_closure_str);
-                    if !(ring_closure_bond.bond_type == BondType::Single
-                        || ring_closure_bond.bond_type == BondType::Delocalized
-                        || ring_closure_bond.bond_type == BondType::Default)
-                    {
-                        ring_closure_str = String::from(char::from(ring_closure_bond.bond_type))
-                            + &ring_closure_str;
-                    }
-                    atom_str += &ring_closure_str;
-                    for index in atom_str_indicies[neighbor + 1..].iter_mut() {
-                        *index += 1;
-                    }
-                }
+        let mut vec_neighbors: Vec<Vec<usize>> = (0..self.atoms.len())
+            .map(|i| {
+                let mut neighbors = self.atom_neighbor_indicies(i);
+                neighbors.retain(|neighbor| *neighbor < i);
+                neighbors.sort();
+
+                neighbors
+            })
+            .collect();
+
+        for (i, neighbors) in vec_neighbors.iter_mut().enumerate() {
+            if neighbors.is_empty() {
+                continue;
             }
 
-            neighbors = vec![*neighbors.last().unwrap()];
+            let last_neighbor = *neighbors.last().unwrap();
+            let bond = self.atoms_bond_between(i, last_neighbor).unwrap();
+            if bond.bond_type != BondType::Single
+                && bond.bond_type != BondType::Delocalized
+                && bond.bond_type != BondType::Default
+            {
+                atom_strs[i].insert(0, bond.bond_type.into());
+            }
 
-            if neighbors.contains(&(i - 1)) {
-                atom_str_indicies.push(smi.len());
-                smi += &atom_str;
-            } else {
-                let cursor = atom_str_indicies[neighbors[0]] + 1;
-                let mut start_index = None;
-                let mut parenthesis_depth = 0;
-                for (i, c) in smi.chars().skip(cursor).enumerate() {
+            for neighbor in &neighbors[..neighbors.len() - 1] {
+                let bond = self.atoms_bond_between(i, *neighbor).unwrap();
+                if bond.bond_type != BondType::Single
+                    && bond.bond_type != BondType::Delocalized
+                    && bond.bond_type != BondType::Default
+                {
+                    atom_strs[i].push(bond.bond_type.into());
+                }
+
+                atom_strs[i].push_str(&format!("{ring_closure_index}"));
+                atom_strs[*neighbor].push_str(&format!("{ring_closure_index}"));
+                ring_closure_index += 1;
+            }
+        }
+
+        for (i, neighbors) in vec_neighbors.iter_mut().enumerate() {
+            if neighbors.is_empty() {
+                continue;
+            }
+
+            let last_neighbor = *neighbors.last().unwrap();
+            if last_neighbor == i - 1 {
+                continue;
+            }
+
+            let mut parenthesis_level = 0;
+            let mut cursor = (last_neighbor, atom_strs[last_neighbor].chars().count());
+            dbg!(i);
+            for j in (last_neighbor + 1)..i {
+                dbg!(j);
+                for (k, c) in atom_strs[j].chars().enumerate() {
                     if c == '(' {
-                        parenthesis_depth += 1;
-                    } else if c == ')' {
-                        parenthesis_depth -= 1;
+                        parenthesis_level += 1;
                     }
-                    if parenthesis_depth > 0 {
-                        continue;
+                    if parenthesis_level == 0 && c == ')' {
+                        cursor = (j, k + 1);
                     }
-                    if let Some(index) = atom_str_indicies
-                        .iter()
-                        .position(|index| *index == cursor + i)
-                    {
-                        start_index = Some(index);
-                        break;
+                    if c == ')' {
+                        parenthesis_level -= 1;
                     }
-                }
-
-                let start_index = start_index.unwrap();
-
-                smi.insert(atom_str_indicies[start_index], '(');
-                for index in atom_str_indicies[start_index..].iter_mut() {
-                    *index += 1;
-                }
-
-                smi.push(')');
-                atom_str_indicies.push(smi.len());
-                smi += &atom_str;
-            }
-        }
-
-        for bond in &self.bonds {
-            if !(bond.bond_type == BondType::Default
-                || bond.bond_type == BondType::Single
-                || bond.bond_type == BondType::Delocalized
-                || ring_closure_bonds.contains(&bond))
-            {
-                smi.insert(atom_str_indicies[bond.j], char::from(bond.bond_type));
-                for index in atom_str_indicies[bond.j..].iter_mut() {
-                    *index += 1;
                 }
             }
+            atom_strs[cursor.0].insert(cursor.1, '(');
+            atom_strs[i].insert(0, ')');
         }
 
-        smi
+        dbg!(&atom_strs);
+        atom_strs.join("")
     }
 }
 
@@ -660,8 +641,19 @@ mod tests {
 
     #[test]
     fn playground() {
-        let mol = Molecule::from_str("[nH]1cncc1").unwrap();
+        let smi = "CC(S(F)(F)(F)(F)F)C";
+        let mol = Molecule::from_str(smi).unwrap();
+        // let mol = Molecule::from_str("Cb(cccc1)c2c1cc(cc[nH]3)c3c2").unwrap();
         dbg!(&mol);
+        dbg!(&mol.to_string());
+        // dbg!(&mol.kekulized().unwrap().to_string());  // parenthesis insertion is broken?
+    }
+
+    #[test]
+    fn test_lenacapavir() {
+        let smi = "FC7=CC(F)=CC(C[C@@H](C1=NC(C#CC(S(=O)(C)=O)(C)C)=CC=C1C2=CC=C(Cl)C3=C2N(CC(F)(F)F)N=C3NS(=O)(C)=O)NC(CN6C5C(F)(F)[C@@]4([H])[C@]([H])(C4)C=5C(C(F)(F)F)=N6)=O)=C7";
+        let mol = Molecule::from_str(smi).unwrap();
+        assert_eq!(smi, mol.to_string());
     }
 
     #[test]
