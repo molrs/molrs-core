@@ -203,6 +203,7 @@ impl Molecule {
             }
 
             for path in paths {
+                dbg!(&path);
                 if path.len() % 2 == 0 {
                     for (i, window) in path.windows(2).enumerate() {
                         if i % 2 == 0 {
@@ -215,6 +216,13 @@ impl Molecule {
                                 .bond_type = BondType::Single;
                         }
                     }
+                    if path.len() > 2 {
+                        if let Some(bond) = mol
+                            .atoms_bond_between_mut(*path.first().unwrap(), *path.last().unwrap())
+                        {
+                            bond.bond_type = BondType::Single;
+                        }
+                    }
                     for i in path {
                         mol.atoms[i].delocalized = false;
                     }
@@ -223,6 +231,16 @@ impl Molecule {
         }
 
         if mol.atoms.iter().any(|atom| atom.delocalized) {
+            return Err(MoleculeError::KekulizationError(format!(
+                "{} | could not be kekulized",
+                mol.to_string()
+            )));
+        }
+        if mol
+            .bonds
+            .iter()
+            .any(|bond| bond.bond_type == BondType::Delocalized)
+        {
             return Err(MoleculeError::KekulizationError(format!(
                 "{} | could not be kekulized",
                 mol.to_string()
@@ -513,7 +531,7 @@ impl Molecule {
         })
     }
 
-    fn perceive_default_bonds(&mut self) {
+    pub fn perceive_default_bonds(&mut self) {
         for bond in self.bonds.iter_mut() {
             if bond.bond_type != BondType::Default {
                 continue;
@@ -646,11 +664,12 @@ mod tests {
 
     #[test]
     fn playground() {
-        let smi = "c1[nH]ccc1";
+        let smi = "NC(Cn1c2c(c(C(F)(F)F)n1)[C@@]([H])(C3)[C@]3([H])C2(F)F)=O";
         // let smi = "N1ccNcc1";
         // let smi = "c1cccCccC1";
         // let smi = "Cb(cccc1)c2c1cc(cc[nH]3)c3c2";
         // let smi = "c1(cc2)c(c2ccc3)c3ccc1";
+        // let smi = "CccC";
         let mol = Molecule::from_str(smi).unwrap();
         dbg!(&mol);
         dbg!(&mol.to_string());
@@ -1405,5 +1424,15 @@ mod tests {
     fn test_atom_explicit_valence() {
         let mol = Molecule::from_str("CS(=O)C").unwrap();
         assert_eq!(mol.atom_explicit_valence(1), 4);
+    }
+
+    #[test]
+    fn test_atom_maximum_allowed_valence() {
+        // TODO: write test
+    }
+
+    #[test]
+    fn test_expected_errors() {
+        // TODO: write test
     }
 }
