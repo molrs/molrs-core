@@ -37,13 +37,13 @@ impl ToString for Atom {
         let mut s = String::new();
         if self.isotope.is_none()
             && self.charge == 0
-            && self.n_radical_electrons == Some(0)
+            && (self.n_radical_electrons == Some(0) || self.n_radical_electrons.is_none())
             && (self.point_chirality == PointChirality::Undefined
                 || self.point_chirality == PointChirality::Achiral)
         {
             let atomic_symbol = match self.delocalized {
-                true => self.element.to_string().to_lowercase(),
-                false => self.element.to_string(),
+                true => self.element.atomic_symbol().to_lowercase(),
+                false => self.element.atomic_symbol(),
             };
 
             s = match self.element {
