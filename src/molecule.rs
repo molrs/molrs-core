@@ -44,16 +44,16 @@ impl FromStr for Molecule {
 
         mol.perceive_default_bonds();
         mol.perceive_rings();
-        // match mol.perceive_implicit_hydrogens() {
-        //     Ok(_) => (),
-        //     Err(err) => {
-        //         return Err(MoleculeError::AssignImplicitHydrogensError(format!(
-        //             "{s} | {:?}",
-        //             err
-        //         )));
-        //     }
-        // };
-        // mol = mol.delocalized();
+        match mol.perceive_implicit_hydrogens() {
+            Ok(_) => (),
+            Err(err) => {
+                return Err(MoleculeError::AssignImplicitHydrogensError(format!(
+                    "{s} | {:?}",
+                    err
+                )));
+            }
+        };
+        mol = mol.delocalized();
         // mol.perceive_stereo();  TODO
 
         Ok(mol)
@@ -169,6 +169,11 @@ impl Molecule {
                 if !mol.atom_needs_kekulization(*index) {
                     path_breaks.push(i);
                     mol.atoms[*index].delocalized = false;
+                    for bond in mol.atom_bonds_mut(*index) {
+                        if bond.bond_type == BondType::Delocalized {
+                            bond.bond_type = BondType::Single;
+                        }
+                    }
                 }
             }
 
@@ -217,7 +222,10 @@ impl Molecule {
         }
 
         if mol.atoms.iter().any(|atom| atom.delocalized) {
-            return Err(MoleculeError::KekulizationError(format!("{} | could not be kekulized", mol.to_string())));
+            return Err(MoleculeError::KekulizationError(format!(
+                "{} | could not be kekulized",
+                mol.to_string()
+            )));
         }
 
         Ok(mol)
@@ -251,6 +259,13 @@ impl Molecule {
     pub fn atom_bonds(&self, index: usize) -> Vec<&Bond> {
         self.bonds
             .iter()
+            .filter(|bond| bond.i == index || bond.j == index)
+            .collect()
+    }
+
+    pub fn atom_bonds_mut(&mut self, index: usize) -> Vec<&mut Bond> {
+        self.bonds
+            .iter_mut()
             .filter(|bond| bond.i == index || bond.j == index)
             .collect()
     }
@@ -564,73 +579,38 @@ impl Molecule {
         self.rings = Some(closed_paths);
     }
 
-    // pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
-    //     let mol = self.kekulized()?;
+    pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
+        let mol = self.kekulized()?;
 
-    //     let bond_orders: Vec<u8> = (0..self.atoms.len())
-    //         .map(|index| self.atom_explicit_valence(index))
-    //         .collect();
-    //     let vec_n_double_bonds: Vec<u8> = (0..self.atoms.len())
-    //         .map(|index| self.atom_n_double_bonds(index))
-    //         .collect();
+        let bond_orders: Vec<u8> = (0..mol.atoms.len())
+            .map(|index| mol.atom_explicit_valence(index))
+            .collect();
+        let maximum_allowed_valences: Vec<u8> = (0..mol.atoms.len())
+            .map(|index| mol.atom_maximum_allowed_valence(index))
+            .collect();
 
-    //     for (i, atom) in self.atoms.iter_mut().enumerate() {
-    //         let mut maximum_valence = atom.element.valence(atom.charge).unwrap();
-    //         let n_double_bonds = vec_n_double_bonds[i];
-    //         match atom.element {
-    //             Element::P => {
-    //                 if n_double_bonds == 0 {
-    //                 } else if n_double_bonds == 1 {
-    //                     maximum_valence += 2;
-    //                 } else {
-    //                     return Err(MoleculeError::BondOrderError(
-    //                         "P has more than 1 double bond".to_owned(),
-    //                     ));
-    //                 }
-    //             }
-    //             Element::S => {
-    //                 if n_double_bonds == 0 {
-    //                 } else if n_double_bonds < 3 {
-    //                     maximum_valence += 2 * n_double_bonds;
-    //                 } else {
-    //                     return Err(MoleculeError::BondOrderError(
-    //                         "S has more than 2 double bonds".to_owned(),
-    //                     ));
-    //                 }
-    //             }
-    //             Element::Cl => {
-    //                 if n_double_bonds == 0 {
-    //                 } else if n_double_bonds < 4 {
-    //                     maximum_valence += 2 * n_double_bonds;
-    //                 } else {
-    //                     return Err(MoleculeError::BondOrderError(
-    //                         "Cl has more than 3 double bonds".to_owned(),
-    //                     ));
-    //                 }
-    //             }
-    //             _ => (),
-    //         };
-    //         let bond_order = bond_orders[i];
-    //         if bond_order > maximum_valence {
-    //             return Err(MoleculeError::BondOrderError(
-    //                 "explicit valence is higher than maximum allowed valence".to_owned(),
-    //             ));
-    //         }
-    //         let mut n_implicit_hydrogens = maximum_valence - bond_order;
-    //         if atom.n_implicit_hydrogens.is_none() {
-    //             if atom.delocalized && n_implicit_hydrogens > 0 {
-    //                 n_implicit_hydrogens -= 1;
-    //             }
-    //             atom.n_implicit_hydrogens = Some(n_implicit_hydrogens);
-    //             atom.n_radical_electrons = Some(0);
-    //         } else {
-    //             atom.n_radical_electrons =
-    //                 Some(n_implicit_hydrogens - atom.n_implicit_hydrogens.unwrap());
-    //         }
-    //     }
+        for (i, atom) in self.atoms.iter_mut().enumerate() {
+            let bond_order = bond_orders[i];
+            let maximum_allowed_valence = maximum_allowed_valences[i];
 
-    //     Ok(())
-    // }
+            if bond_order > maximum_allowed_valence {
+                return Err(MoleculeError::BondOrderError(format!(
+                    "explicit bond order is higher than maximum allowed valence for atom {i}"
+                )));
+            }
+
+            let n_implicit_hydrogens = maximum_allowed_valence - bond_order;
+            if atom.n_implicit_hydrogens.is_none() {
+                atom.n_implicit_hydrogens = Some(n_implicit_hydrogens);
+                atom.n_radical_electrons = Some(0);
+            } else {
+                atom.n_radical_electrons =
+                    Some(n_implicit_hydrogens - atom.n_implicit_hydrogens.unwrap());
+            }
+        }
+
+        Ok(())
+    }
 
     fn atom_n_double_bonds(&self, index: usize) -> u8 {
         self.atom_bonds(index)
@@ -678,7 +658,7 @@ mod tests {
 
     #[test]
     fn test_lenacapavir() {
-        let smi = "FC7=CC(F)=CC(C[C@@H](C1=NC(C#CC(S(=O)(C)=O)(C)C)=CC=C1C2=CC=C(Cl)C3=C2N(CC(F)(F)F)N=C3NS(=O)(C)=O)NC(CN6C5C(F)(F)[C@@]4([H])[C@]([H])(C4)C=5C(C(F)(F)F)=N6)=O)=C7";
+        let smi = "Fc7cc(F)cc(C[C@@H](c1nc(C#CC(S(=O)(C)=O)(C)C)ccc1c2ccc(Cl)c3c2n(CC(F)(F)F)nc3NS(=O)(C)=O)NC(Cn6c5C(F)(F)[C@@]4([H])[C@]([H])(C4)c5c(C(F)(F)F)n6)=O)c7";
         let mol = Molecule::from_str(smi).unwrap();
         assert_eq!(smi, mol.to_string());
     }
