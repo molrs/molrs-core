@@ -23,6 +23,7 @@ enum RingIndex {
 #[derive(Debug)]
 pub enum MoleculeError {
     SmilesParseError(String),
+    MissingRingsError(String),
     KekulizationError(String),
     BondOrderError(String),
     AssignImplicitHydrogensError(String),
@@ -41,6 +42,7 @@ impl FromStr for Molecule {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut mol = Molecule::parse_smi(s)?;
 
+        mol.perceive_default_bonds();
         mol.perceive_rings();
         // match mol.perceive_implicit_hydrogens() {
         //     Ok(_) => (),
@@ -51,13 +53,6 @@ impl FromStr for Molecule {
         //         )));
         //     }
         // };
-        // mol = match mol.kekulized() {
-        //     Ok(mol) => mol,
-        //     Err(e) => {
-        //         return Err(MoleculeError::KekulizationError(format!("{s} | {:?}", e)));
-        //     }
-        // };
-        // mol.perceive_default_bonds();
         // mol = mol.delocalized();
         // mol.perceive_stereo();  TODO
 
@@ -68,7 +63,6 @@ impl FromStr for Molecule {
 impl ToString for Molecule {
     fn to_string(&self) -> String {
         let mut atom_strs: Vec<String> = self.atoms.iter().map(|atom| atom.to_string()).collect();
-
         let mut ring_closure_index = 1;
 
         for (i, atom) in self.atoms.iter().enumerate() {
@@ -159,97 +153,71 @@ impl ToString for Molecule {
 
 impl Molecule {
     pub fn kekulized(&self) -> Result<Molecule, MoleculeError> {
-        if self.rings.is_none() {
-            return Err(MoleculeError::KekulizationError(format!(
-                "{:?} | run perceive_rings before kekulization",
-                self
-            )));
-        }
-
         let mut mol = self.clone();
-
-        for bond in mol.bonds.iter_mut() {
-            if bond.bond_type == BondType::Delocalized {
-                bond.bond_type = BondType::Default;
+        let rings = match &self.rings {
+            Some(rings) => rings,
+            None => {
+                return Err(MoleculeError::MissingRingsError(
+                    "how did you get here?".to_owned(),
+                ));
             }
-        }
+        };
 
-        let mut conjugated_rings = vec![];
-        for ring in mol.rings.as_ref().unwrap() {
-            if ring
-                .iter()
-                .all(|index| self.atom_needs_kekulization(*index))
-            {
-                conjugated_rings.push(ring.clone());
+        for ring in rings.iter().rev() {
+            let mut path_breaks = vec![];
+            for (i, index) in ring.iter().enumerate() {
+                if !mol.atom_needs_kekulization(*index) {
+                    path_breaks.push(i);
+                    mol.atoms[*index].delocalized = false;
+                }
             }
-        }
 
-        let mut needs_kekulization = vec![true];
-        while needs_kekulization.iter().any(|val| *val) {
-            needs_kekulization = vec![];
-            for conjugated_ring in &conjugated_rings {
-                let mut contiguous_paths: Vec<Vec<usize>> = vec![];
-                for index in conjugated_ring {
-                    let index = *index;
-                    let atom = mol.atoms[index];
-                    let maximum_valence = atom.element.valence(atom.charge).unwrap();
-                    let bond_order =
-                        mol.atom_explicit_valence(index) + atom.n_implicit_hydrogens.unwrap();
-                    if mol.atom_n_double_bonds(index) == 0 && bond_order < maximum_valence {
-                        for path in contiguous_paths.iter_mut() {
-                            if self
-                                .atoms_bond_between(index, *path.last().unwrap())
-                                .is_some()
-                            {
-                                path.push(index);
-                            } else if self
-                                .atoms_bond_between(index, *path.first().unwrap())
-                                .is_some()
-                            {
-                                let mut new_path = vec![index];
-                                new_path.extend(path.iter());
-                                *path = new_path;
-                            }
-                        }
-                        if !contiguous_paths.iter().any(|path| path.contains(&index)) {
-                            contiguous_paths.push(vec![index]);
-                        }
+            let mut paths = vec![];
+            if path_breaks.is_empty() {
+                if ring.len() % 2 == 0 {
+                    paths.push(ring.clone());
+                }
+            } else if path_breaks.len() == 1 {
+                let path_break = path_breaks[0];
+                let mut path = ring[path_break + 1..].to_owned();
+                path.extend(&ring[..path_break]);
+                paths.push(path);
+            } else {
+                for window in path_breaks.windows(2) {
+                    let path = ring[window[0] + 1..window[1]].to_owned();
+                    if !path.is_empty() {
+                        paths.push(path);
                     }
                 }
+                let mut path = ring[path_breaks.last().unwrap() + 1..].to_owned();
+                path.extend(&ring[..*path_breaks.first().unwrap()]);
+                if !path.is_empty() {
+                    paths.push(path);
+                }
+            }
 
-                for path in contiguous_paths.iter() {
-                    if path.len() == 1 {
-                        return Err(MoleculeError::KekulizationError(format!("{:?}", self)));
-                    } else if path.len() % 2 == 1 {
-                        needs_kekulization.push(true);
-                    } else {
-                        needs_kekulization.push(false);
-                        for i in 0..(path.len() / 2) {
-                            mol.atoms_bond_between_mut(path[i * 2], path[i * 2 + 1])
+            for path in paths {
+                if path.len() % 2 == 0 {
+                    for (i, window) in path.windows(2).enumerate() {
+                        if i % 2 == 0 {
+                            mol.atoms_bond_between_mut(window[0], window[1])
                                 .unwrap()
                                 .bond_type = BondType::Double;
-                            mol.atoms[i * 2].delocalized = false;
-                            mol.atoms[i * 2 + 1].delocalized = false;
+                        } else {
+                            mol.atoms_bond_between_mut(window[0], window[1])
+                                .unwrap()
+                                .bond_type = BondType::Single;
                         }
+                    }
+                    for i in path {
+                        mol.atoms[i].delocalized = false;
                     }
                 }
             }
-            if needs_kekulization.is_empty() {
-                break;
-            }
-            if needs_kekulization.iter().all(|val| *val) {
-                return Err(MoleculeError::KekulizationError(format!("{:?}", self)));
-            }
         }
 
-        for bond in mol.bonds.iter_mut() {
-            if bond.bond_type == BondType::Default {
-                bond.bond_type = BondType::Single;
-            }
-        }
-
-        for atom in mol.atoms.iter_mut() {
-            atom.delocalized = false;
+        if mol.atoms.iter().any(|atom| atom.delocalized) {
+            return Err(MoleculeError::KekulizationError(format!("{} | could not be kekulized", mol.to_string())));
         }
 
         Ok(mol)
@@ -319,6 +287,37 @@ impl Molecule {
             .sum::<f64>() as u8
     }
 
+    pub fn atom_maximum_allowed_valence(&self, index: usize) -> u8 {
+        let atom = self.atoms[index];
+        let mut maximum_allowed_valence = self.atoms[index].element.valence(atom.charge).unwrap();
+
+        let n_double_bonds = self.atom_n_double_bonds(index);
+        // TODO: handle fluorines like SF6
+        match atom.element {
+            Element::P => {
+                if n_double_bonds == 0 {
+                } else if n_double_bonds == 1 {
+                    maximum_allowed_valence += 2;
+                }
+            }
+            Element::S => {
+                if n_double_bonds == 0 {
+                } else if n_double_bonds < 3 {
+                    maximum_allowed_valence += 2 * n_double_bonds;
+                }
+            }
+            Element::Cl => {
+                if n_double_bonds == 0 {
+                } else if n_double_bonds < 4 {
+                    maximum_allowed_valence += 2 * n_double_bonds;
+                }
+            }
+            _ => (),
+        };
+
+        maximum_allowed_valence
+    }
+
     fn parse_smi(smi: &str) -> Result<Molecule, MoleculeError> {
         let mut atoms = vec![];
         let mut bond = Bond::default();
@@ -332,8 +331,6 @@ impl Molecule {
         let mut double_digit_ring_index = RingIndex::None;
 
         for c in smi.chars() {
-            dbg!(&c);
-            dbg!(&double_digit_ring_index);
             if c_is_in_bracket {
                 let atom: &mut Atom = atoms.last_mut().unwrap();
                 if c == ']' {
@@ -500,127 +497,6 @@ impl Molecule {
         })
     }
 
-    fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
-        let bond_orders: Vec<u8> = (0..self.atoms.len())
-            .map(|index| self.atom_explicit_valence(index))
-            .collect();
-        let vec_n_double_bonds: Vec<u8> = (0..self.atoms.len())
-            .map(|index| self.atom_n_double_bonds(index))
-            .collect();
-
-        for (i, atom) in self.atoms.iter_mut().enumerate() {
-            let mut maximum_valence = atom.element.valence(atom.charge).unwrap();
-            let n_double_bonds = vec_n_double_bonds[i];
-            match atom.element {
-                Element::P => {
-                    if n_double_bonds == 0 {
-                    } else if n_double_bonds == 1 {
-                        maximum_valence += 2;
-                    } else {
-                        return Err(MoleculeError::BondOrderError(
-                            "P has more than 1 double bond".to_owned(),
-                        ));
-                    }
-                }
-                Element::S => {
-                    if n_double_bonds == 0 {
-                    } else if n_double_bonds < 3 {
-                        maximum_valence += 2 * n_double_bonds;
-                    } else {
-                        return Err(MoleculeError::BondOrderError(
-                            "S has more than 2 double bonds".to_owned(),
-                        ));
-                    }
-                }
-                Element::Cl => {
-                    if n_double_bonds == 0 {
-                    } else if n_double_bonds < 4 {
-                        maximum_valence += 2 * n_double_bonds;
-                    } else {
-                        return Err(MoleculeError::BondOrderError(
-                            "Cl has more than 3 double bonds".to_owned(),
-                        ));
-                    }
-                }
-                _ => (),
-            };
-            let bond_order = bond_orders[i];
-            if bond_order > maximum_valence {
-                return Err(MoleculeError::BondOrderError(
-                    "explicit valence is higher than maximum allowed valence".to_owned(),
-                ));
-            }
-            let mut n_implicit_hydrogens = maximum_valence - bond_order;
-            if atom.n_implicit_hydrogens.is_none() {
-                if atom.delocalized && n_implicit_hydrogens > 0 {
-                    n_implicit_hydrogens -= 1;
-                }
-                atom.n_implicit_hydrogens = Some(n_implicit_hydrogens);
-                atom.n_radical_electrons = Some(0);
-            } else {
-                atom.n_radical_electrons =
-                    Some(n_implicit_hydrogens - atom.n_implicit_hydrogens.unwrap());
-            }
-        }
-
-        Ok(())
-    }
-
-    fn perceive_rings(&mut self) {
-        let mut paths = vec![];
-        let mut closed_paths = vec![];
-        for neighbor_index in self.atom_neighbor_indicies(0) {
-            paths.push(vec![0, neighbor_index]);
-        }
-
-        let mut counter = 0;
-        while counter < 20 && !paths.is_empty() {
-            counter += 1;
-
-            let mut new_paths = vec![];
-            for path in paths.iter_mut() {
-                if path.is_empty() {
-                    continue;
-                }
-                let last_atom_index = *path.last().unwrap();
-                let second_to_last_atom_index = path.iter().rev().nth(1).unwrap();
-                let mut neighbor_indices = self.atom_neighbor_indicies(last_atom_index);
-                neighbor_indices
-                    .retain(|neighbor_index| neighbor_index != second_to_last_atom_index);
-                if neighbor_indices.is_empty() {
-                    *path = vec![];
-                } else {
-                    for neighbor_index in &neighbor_indices[1..] {
-                        let mut new_path = path.clone();
-                        new_path.push(*neighbor_index);
-                        new_paths.push(new_path);
-                    }
-                    path.push(neighbor_indices[0]);
-                }
-            }
-            for new_path in new_paths {
-                paths.push(new_path);
-            }
-            for path in paths.iter_mut() {
-                if !path.is_empty() {
-                    if let Some(index_of_duplicate) = get_index_of_duplicate(path) {
-                        closed_paths.push(path[(index_of_duplicate)..path.len() - 1].to_owned());
-                        *path = vec![];
-                    }
-                }
-            }
-            for i in (0..paths.len()).rev() {
-                if paths[i].is_empty() {
-                    paths.remove(i);
-                }
-            }
-        }
-        closed_paths = deduplicate_vecs(closed_paths);
-        closed_paths.sort_by_key(|closed_loop| -(closed_loop.len() as isize));
-
-        self.rings = Some(closed_paths);
-    }
-
     fn perceive_default_bonds(&mut self) {
         for bond in self.bonds.iter_mut() {
             if bond.bond_type != BondType::Default {
@@ -636,6 +512,126 @@ impl Molecule {
         }
     }
 
+    pub fn perceive_rings(&mut self) {
+        let mut paths = vec![];
+        let mut closed_paths = vec![];
+        for neighbor_index in self.atom_neighbor_indicies(0) {
+            paths.push(Some(vec![0, neighbor_index]));
+        }
+
+        while !paths.is_empty() {
+            let mut new_paths = vec![];
+            for path in paths.iter_mut() {
+                if path.is_none() {
+                    continue;
+                }
+                let last_atom_index = *path.as_ref().unwrap().last().unwrap();
+                let second_to_last_atom_index = path.as_ref().unwrap().iter().rev().nth(1).unwrap();
+                let mut neighbor_indices = self.atom_neighbor_indicies(last_atom_index);
+                neighbor_indices
+                    .retain(|neighbor_index| neighbor_index != second_to_last_atom_index);
+                if neighbor_indices.is_empty() {
+                    *path = None;
+                } else {
+                    for neighbor_index in &neighbor_indices[1..] {
+                        let mut new_path = path.clone().unwrap();
+                        new_path.push(*neighbor_index);
+                        new_paths.push(new_path);
+                    }
+                    path.as_mut().unwrap().push(neighbor_indices[0]);
+                }
+            }
+            for new_path in new_paths {
+                paths.push(Some(new_path));
+            }
+            for path_option in paths.iter_mut() {
+                if let Some(path) = path_option {
+                    if let Some(index_of_duplicate) = get_index_of_duplicate(path) {
+                        closed_paths.push(path[(index_of_duplicate)..path.len() - 1].to_owned());
+                        *path_option = None;
+                    }
+                }
+            }
+            for i in (0..paths.len()).rev() {
+                if paths[i].is_none() {
+                    paths.remove(i);
+                }
+            }
+        }
+        closed_paths = deduplicate_vecs(closed_paths);
+        closed_paths.sort_by_key(|closed_loop| -(closed_loop.len() as isize));
+
+        self.rings = Some(closed_paths);
+    }
+
+    // pub fn perceive_implicit_hydrogens(&mut self) -> Result<(), MoleculeError> {
+    //     let mol = self.kekulized()?;
+
+    //     let bond_orders: Vec<u8> = (0..self.atoms.len())
+    //         .map(|index| self.atom_explicit_valence(index))
+    //         .collect();
+    //     let vec_n_double_bonds: Vec<u8> = (0..self.atoms.len())
+    //         .map(|index| self.atom_n_double_bonds(index))
+    //         .collect();
+
+    //     for (i, atom) in self.atoms.iter_mut().enumerate() {
+    //         let mut maximum_valence = atom.element.valence(atom.charge).unwrap();
+    //         let n_double_bonds = vec_n_double_bonds[i];
+    //         match atom.element {
+    //             Element::P => {
+    //                 if n_double_bonds == 0 {
+    //                 } else if n_double_bonds == 1 {
+    //                     maximum_valence += 2;
+    //                 } else {
+    //                     return Err(MoleculeError::BondOrderError(
+    //                         "P has more than 1 double bond".to_owned(),
+    //                     ));
+    //                 }
+    //             }
+    //             Element::S => {
+    //                 if n_double_bonds == 0 {
+    //                 } else if n_double_bonds < 3 {
+    //                     maximum_valence += 2 * n_double_bonds;
+    //                 } else {
+    //                     return Err(MoleculeError::BondOrderError(
+    //                         "S has more than 2 double bonds".to_owned(),
+    //                     ));
+    //                 }
+    //             }
+    //             Element::Cl => {
+    //                 if n_double_bonds == 0 {
+    //                 } else if n_double_bonds < 4 {
+    //                     maximum_valence += 2 * n_double_bonds;
+    //                 } else {
+    //                     return Err(MoleculeError::BondOrderError(
+    //                         "Cl has more than 3 double bonds".to_owned(),
+    //                     ));
+    //                 }
+    //             }
+    //             _ => (),
+    //         };
+    //         let bond_order = bond_orders[i];
+    //         if bond_order > maximum_valence {
+    //             return Err(MoleculeError::BondOrderError(
+    //                 "explicit valence is higher than maximum allowed valence".to_owned(),
+    //             ));
+    //         }
+    //         let mut n_implicit_hydrogens = maximum_valence - bond_order;
+    //         if atom.n_implicit_hydrogens.is_none() {
+    //             if atom.delocalized && n_implicit_hydrogens > 0 {
+    //                 n_implicit_hydrogens -= 1;
+    //             }
+    //             atom.n_implicit_hydrogens = Some(n_implicit_hydrogens);
+    //             atom.n_radical_electrons = Some(0);
+    //         } else {
+    //             atom.n_radical_electrons =
+    //                 Some(n_implicit_hydrogens - atom.n_implicit_hydrogens.unwrap());
+    //         }
+    //     }
+
+    //     Ok(())
+    // }
+
     fn atom_n_double_bonds(&self, index: usize) -> u8 {
         self.atom_bonds(index)
             .iter()
@@ -645,7 +641,11 @@ impl Molecule {
 
     fn atom_needs_kekulization(&self, index: usize) -> bool {
         let atom = self.atoms[index];
-        atom.delocalized || self.atom_n_double_bonds(index) > 0
+        atom.delocalized
+            && self.atom_n_double_bonds(index) == 0
+            && (self.atom_neighbor_indicies(index).len() as u8
+                + atom.n_implicit_hydrogens.unwrap_or(0))
+                < self.atom_maximum_allowed_valence(index)
     }
 
     fn atom_needs_delocalization(&self, index: usize) -> bool {
@@ -665,11 +665,15 @@ mod tests {
 
     #[test]
     fn playground() {
-        let smi = "Cb(cccc1)c2c1cc(cc[nH]3)c3c2";
+        let smi = "c1[nH]ccc1";
+        // let smi = "N1ccNcc1";
+        // let smi = "c1cccCccC1";
+        // let smi = "Cb(cccc1)c2c1cc(cc[nH]3)c3c2";
+        // let smi = "c1(cc2)c(c2ccc3)c3ccc1";
         let mol = Molecule::from_str(smi).unwrap();
         dbg!(&mol);
-        dbg!(&mol.to_string());
-        // dbg!(&mol.kekulized().unwrap().to_string());  // parenthesis insertion is broken?
+        // dbg!(&mol.to_string());
+        dbg!(&mol.kekulized().unwrap().to_string()); // parenthesis insertion is broken?
     }
 
     #[test]
