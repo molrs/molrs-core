@@ -44,6 +44,7 @@ impl FromStr for Molecule {
 
         mol.perceive_default_bonds();
         mol.perceive_rings();
+        mol = mol.kekulized()?;
         match mol.perceive_implicit_hydrogens() {
             Ok(_) => (),
             Err(err) => {
@@ -652,7 +653,7 @@ mod tests {
         // let smi = "c1(cc2)c(c2ccc3)c3ccc1";
         let mol = Molecule::from_str(smi).unwrap();
         dbg!(&mol);
-        // dbg!(&mol.to_string());
+        dbg!(&mol.to_string());
         dbg!(&mol.kekulized().unwrap().to_string()); // parenthesis insertion is broken?
     }
 
