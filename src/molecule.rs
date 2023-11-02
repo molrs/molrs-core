@@ -34,6 +34,7 @@ impl FromStr for Molecule {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut mol = Molecule::parse_smi(s)?;
 
+        mol.perceive_rings();
         // match mol.perceive_implicit_hydrogens() {
         //     Ok(_) => (),
         //     Err(err) => {
@@ -43,7 +44,6 @@ impl FromStr for Molecule {
         //         )));
         //     }
         // };
-        // mol.perceive_rings();
         // mol = match mol.kekulized() {
         //     Ok(mol) => mol,
         //     Err(e) => {
@@ -124,10 +124,8 @@ impl ToString for Molecule {
 
             let mut parenthesis_level = 0;
             let mut cursor = (last_neighbor, atom_strs[last_neighbor].chars().count());
-            dbg!(i);
-            for j in (last_neighbor + 1)..i {
-                dbg!(j);
-                for (k, c) in atom_strs[j].chars().enumerate() {
+            for (j, atom_str) in atom_strs.iter().enumerate().take(i).skip(last_neighbor + 1) {
+                for (k, c) in atom_str.chars().enumerate() {
                     if c == '(' {
                         parenthesis_level += 1;
                     }
@@ -143,7 +141,6 @@ impl ToString for Molecule {
             atom_strs[i].insert(0, ')');
         }
 
-        dbg!(&atom_strs);
         atom_strs.join("")
     }
 }
