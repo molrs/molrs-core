@@ -13,6 +13,13 @@ enum AtomAttribute {
     Charge,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum RingIndex {
+    None,
+    Ready,
+    One(usize),
+}
+
 #[derive(Debug)]
 pub enum MoleculeError {
     SmilesParseError(String),
@@ -106,8 +113,13 @@ impl ToString for Molecule {
                     atom_strs[i].push(bond.bond_type.into());
                 }
 
-                atom_strs[i].push_str(&format!("{ring_closure_index}"));
-                atom_strs[*neighbor].push_str(&format!("{ring_closure_index}"));
+                let ring_closure_string: String = if ring_closure_index > 9 {
+                    format!("%{ring_closure_index}")
+                } else {
+                    format!("{ring_closure_index}")
+                };
+                atom_strs[i].push_str(&ring_closure_string);
+                atom_strs[*neighbor].push_str(&ring_closure_string);
                 ring_closure_index += 1;
             }
         }
@@ -317,8 +329,11 @@ impl Molecule {
         let mut atom_attribute = AtomAttribute::Isotope;
         let mut element_str = String::new();
         let mut root_atom = vec![];
+        let mut double_digit_ring_index = RingIndex::None;
 
         for c in smi.chars() {
+            dbg!(&c);
+            dbg!(&double_digit_ring_index);
             if c_is_in_bracket {
                 let atom: &mut Atom = atoms.last_mut().unwrap();
                 if c == ']' {
@@ -402,22 +417,34 @@ impl Molecule {
             {
                 bond.bond_type = BondType::try_from(c).unwrap();
             } else if c == '%' {
-                unimplemented!()
+                double_digit_ring_index = RingIndex::Ready;
             } else if c.is_numeric() {
                 let c_as_digit = c.to_digit(10).unwrap() as usize;
+                let ring_index: usize = match double_digit_ring_index {
+                    RingIndex::Ready => {
+                        double_digit_ring_index = RingIndex::One(c_as_digit);
+                        continue;
+                    }
+                    RingIndex::One(i) => {
+                        double_digit_ring_index = RingIndex::None;
+                        i * 10 + c_as_digit
+                    }
+                    RingIndex::None => c_as_digit,
+                };
+
                 if let std::collections::hash_map::Entry::Vacant(e) =
-                    ring_closures.entry(c_as_digit)
+                    ring_closures.entry(ring_index)
                 {
                     e.insert(atoms.len() - 1);
                 } else {
                     let ring_closure_bond = Bond {
-                        i: *ring_closures.get(&c_as_digit).unwrap(),
+                        i: *ring_closures.get(&ring_index).unwrap(),
                         j: atoms.len() - 1,
                         bond_type: bond.bond_type,
                     };
                     bond.bond_type = BondType::Default;
                     bonds.push(ring_closure_bond);
-                    ring_closures.remove(&c_as_digit);
+                    ring_closures.remove(&ring_index);
                 }
             } else if c == '(' {
                 root_atom.push(*root_atom.last().unwrap());
@@ -638,9 +665,8 @@ mod tests {
 
     #[test]
     fn playground() {
-        let smi = "CC(S(F)(F)(F)(F)F)C";
+        let smi = "Cb(cccc1)c2c1cc(cc[nH]3)c3c2";
         let mol = Molecule::from_str(smi).unwrap();
-        // let mol = Molecule::from_str("Cb(cccc1)c2c1cc(cc[nH]3)c3c2").unwrap();
         dbg!(&mol);
         dbg!(&mol.to_string());
         // dbg!(&mol.kekulized().unwrap().to_string());  // parenthesis insertion is broken?
