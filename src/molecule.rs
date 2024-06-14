@@ -203,7 +203,6 @@ impl Molecule {
             }
 
             for path in paths {
-                dbg!(&path);
                 if path.len() % 2 == 0 {
                     for (i, window) in path.windows(2).enumerate() {
                         if i % 2 == 0 {
@@ -317,8 +316,8 @@ impl Molecule {
     pub fn atom_explicit_valence(&self, index: usize) -> u8 {
         self.atom_bonds(index)
             .iter()
-            .map(|bond| f64::from(bond.bond_type))
-            .sum::<f64>() as u8
+            .map(|bond| u8::from(bond.bond_type))
+            .sum::<u8>()
     }
 
     pub fn atom_maximum_allowed_valence(&self, index: usize) -> u8 {
@@ -642,17 +641,14 @@ impl Molecule {
         let atom = self.atoms[index];
         atom.delocalized
             && self.atom_n_double_bonds(index) == 0
-            && (self.atom_neighbor_indicies(index).len() as u8
-                + atom.n_implicit_hydrogens.unwrap_or(0))
+            && (self.atom_explicit_valence(index) + atom.n_implicit_hydrogens.unwrap_or(0))
                 < self.atom_maximum_allowed_valence(index)
     }
 
     fn atom_needs_delocalization(&self, index: usize) -> bool {
         let atom = self.atoms[index];
         self.atom_n_double_bonds(index) > 0
-            || (self.atom_bonds(index).len() as u8 + atom.n_implicit_hydrogens.unwrap()) as i8
-                + atom.charge
-                < 4
+            || (self.atom_bonds(index).len() as u8 + atom.n_implicit_hydrogens.unwrap()) < 4
     }
 }
 
@@ -664,11 +660,12 @@ mod tests {
 
     #[test]
     fn playground() {
-        let smi = "NC(Cn1c2c(c(C(F)(F)F)n1)[C@@]([H])(C3)[C@]3([H])C2(F)F)=O";
+        // let smi = "NC(Cn1c2c(c(C(F)(F)F)n1)[C@@]([H])(C3)[C@]3([H])C2(F)F)=O";
         // let smi = "N1ccNcc1";
         // let smi = "c1cccCccC1";
         // let smi = "Cb(cccc1)c2c1cc(cc[nH]3)c3c2";
         // let smi = "c1(cc2)c(c2ccc3)c3ccc1";
+        let smi = "c1s(=O)ccc1";
         // let smi = "CccC";
         let mol = Molecule::from_str(smi).unwrap();
         dbg!(&mol);

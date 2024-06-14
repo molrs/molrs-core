@@ -102,6 +102,38 @@ impl From<&BondType> for f64 {
     }
 }
 
+impl From<BondType> for u8 {
+    fn from(value: BondType) -> Self {
+        match value {
+            BondType::Default => 1,
+            BondType::Single => 1,
+            BondType::Up => 1,
+            BondType::Down => 1,
+            BondType::Delocalized => 1,
+            BondType::Double => 2,
+            BondType::Triple => 3,
+            BondType::Quadruple => 4,
+            BondType::Dative => unimplemented!(),
+        }
+    }
+}
+
+impl From<&BondType> for u8 {
+    fn from(value: &BondType) -> Self {
+        match value {
+            BondType::Default => 1,
+            BondType::Single => 1,
+            BondType::Up => 1,
+            BondType::Down => 1,
+            BondType::Delocalized => 1,
+            BondType::Double => 2,
+            BondType::Triple => 3,
+            BondType::Quadruple => 4,
+            BondType::Dative => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Bond {
     pub i: usize,
