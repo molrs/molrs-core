@@ -1,4 +1,5 @@
 use pertable::Element;
+use std::fmt;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PointChirality {
@@ -9,15 +10,15 @@ pub enum PointChirality {
     CounterClockwise,
 }
 
-impl ToString for PointChirality {
-    fn to_string(&self) -> String {
-        match self {
+impl fmt::Display for PointChirality {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
             PointChirality::Undefined => "",
             PointChirality::Achiral => "",
             PointChirality::CounterClockwise => "@",
             PointChirality::Clockwise => "@@",
-        }
-        .to_owned()
+        };
+        write!(f, "{s}",)
     }
 }
 
@@ -32,8 +33,8 @@ pub struct Atom {
     pub point_chirality: PointChirality,
 }
 
-impl ToString for Atom {
-    fn to_string(&self) -> String {
+impl fmt::Display for Atom {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut s = String::new();
         if self.isotope.is_none()
             && self.charge == 0
@@ -91,6 +92,6 @@ impl ToString for Atom {
             s.push(']');
         }
 
-        s
+        write! {f, "{s}"}
     }
 }
