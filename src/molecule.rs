@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::str::FromStr;
 
 use pertable::Element;
@@ -61,8 +62,8 @@ impl FromStr for Molecule {
     }
 }
 
-impl ToString for Molecule {
-    fn to_string(&self) -> String {
+impl fmt::Display for Molecule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut atom_strs: Vec<String> = self.atoms.iter().map(|atom| atom.to_string()).collect();
         let mut ring_closure_index = 1;
 
@@ -148,7 +149,9 @@ impl ToString for Molecule {
             atom_strs[i].insert(0, ')');
         }
 
-        atom_strs.join("")
+        let s = atom_strs.join("");
+
+        write!(f, "{s}")
     }
 }
 
@@ -231,8 +234,7 @@ impl Molecule {
 
         if mol.atoms.iter().any(|atom| atom.delocalized) {
             return Err(MoleculeError::KekulizationError(format!(
-                "{} | could not be kekulized",
-                mol.to_string()
+                "{mol} | could not be kekulized"
             )));
         }
         if mol
@@ -241,8 +243,7 @@ impl Molecule {
             .any(|bond| bond.bond_type == BondType::Delocalized)
         {
             return Err(MoleculeError::KekulizationError(format!(
-                "{} | could not be kekulized",
-                mol.to_string()
+                "{mol} | could not be kekulized"
             )));
         }
 
